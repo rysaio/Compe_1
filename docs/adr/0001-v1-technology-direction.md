@@ -11,10 +11,12 @@ must prove a persistent agent loop around operational cases, task state, tools,
 policy checks, and audit records before investing in heavier workflow or
 platform infrastructure.
 
-The v1 needs to run as a small local demo that can use real endpoint and
-security-platform signals, while keeping detection and raw telemetry collection
-as upstream responsibilities of systems such as Wazuh, Sysmon, EDR, SIEM,
-firewalls, or log platforms.
+The v1 needs to be a core-capable MVP that can gather real investigation
+evidence without requiring the user to already run a SIEM/SOAR, while keeping
+detection, fleet telemetry collection, correlation, and SOAR-style playbook
+automation outside the product's ownership. Existing systems such as Wazuh,
+Sysmon, EDR, SIEM, firewalls, log platforms, or SOAR tools remain upstream
+systems when present.
 
 ## Decision
 
@@ -28,9 +30,22 @@ Use a TypeScript-first stack for v1:
   agent runtime.
 - Postgres as the source of truth for operational cases, task ledger, action
   ledger, audit records, and structured operational memory.
+- A minimal deterministic wake gate to decide whether signals, schedules, or
+  operator events should consume agent runtime and human attention.
 - Deterministic policy gates before any real action is executed.
-- Wazuh/Sysmon or similar tools as upstream signal sources, not as code owned by
-  this product.
+- A probe-first, Wazuh-compatible integration posture:
+  - The harness includes a small evidence probe kit for investigation, such as
+    osquery, event-log readers, Zeek or NetFlow importers, and artifact readers.
+  - Wazuh, Sysmon, SIEM, EDR, firewall, log-platform, and SOAR capabilities
+    remain upstream systems, not code owned by this product.
+  - Wazuh is a compatible adapter target, not a hard prerequisite for v1 use.
+
+Do not rebuild SIEM/SOAR capabilities in v1. Detection engineering,
+correlation engines, risk scoring, playbook designers, fleet telemetry
+platforms, full security data lakes, and mature case-management replacement are
+explicitly outside the product's core ownership. If an upstream platform already
+owns a signal, case, automation, or response action, the harness should
+integrate with that ownership rather than duplicating it.
 
 Do not make Temporal, Celery, or Mastra mandatory v1 dependencies.
 
@@ -49,9 +64,16 @@ v1 unless a future Python subsystem becomes the canonical worker runtime.
 ## Consequences
 
 - v1 stays focused on proving the security operations harness and agent loop
-  instead of proving a workflow platform.
+  instead of proving a workflow, SIEM, or SOAR platform.
 - The system has one durable business truth source: Postgres, not hidden model
   memory or workflow history.
+- The first integration path optimizes for product independence: the harness can
+  gather basic evidence itself, while improving when Wazuh-like or EDR/SIEM
+  environments already exist.
+- The evidence probe kit must remain an investigation-time probe surface, not a
+  continuous fleet telemetry or detection platform.
+- Wake gating must remain about agent runtime cost and attention pressure, not
+  about replacing upstream detection, risk scoring, or correlation.
 - The first worker loop must be intentionally shaped around task leasing,
   retries, idempotent tools, policy checks, and audit writes so the later
   Temporal upgrade path remains feasible.

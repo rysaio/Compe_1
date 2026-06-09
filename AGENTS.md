@@ -30,16 +30,25 @@ working over time: read signals, maintain cases and tasks, investigate through
 tools, propose or execute allowed actions, explain decisions, and write an
 auditable trail.
 
-Keep detection and raw telemetry as upstream capabilities from tools such as
-Wazuh, Sysmon, EDR, SIEM, firewalls, or log platforms. This project owns the
-operations harness around those signals: case handling, task ledger, action
+Keep detection and raw telemetry platforms as upstream capabilities from tools
+such as Wazuh, Sysmon, EDR, SIEM, firewalls, or log platforms. This project owns
+the operations harness around those signals: case handling, task ledger, action
 policy, explanation, escalation, audit, and operator experience.
 
+For v1, use a probe-first, Wazuh-compatible integration posture. The product
+should work without requiring the user to already run Wazuh, Splunk, or an EDR,
+by providing a small evidence probe kit for investigation. Do not let that probe
+kit become a self-built SIEM/EDR: avoid detection engineering, correlation
+engines, risk scoring, playbook designers, fleet telemetry platforms, or full
+security data lakes. When an upstream platform already owns signals, cases,
+automations, or response actions, integrate with that ownership rather than
+duplicating it.
+
 Model the product as aligned harness components, not as a linear workflow:
-`SOC Operator Agent`, `Signal Collectors`, `Evidence Tools`, `Operational Case`,
-`Case State`, `Task Ledger`, `Policy Gate`, `Action Executors`,
-`Operator Attention Channel`, `Operational Memory`, `Audit Trail`, and
-`Operator Workbench`.
+`SOC Operator Agent`, `Evidence Probe Kit`, `Signal Collectors`,
+`Evidence Tools`, `Operational Case`, `Case State`, `Task Ledger`, `Wake Gate`,
+`Policy Gate`, `Action Executors`, `Operator Attention Channel`,
+`Operational Memory`, `Audit Trail`, and `Operator Workbench`.
 
 When designing features, keep the product effect centered on a working SOC
 system. The user experience should surface operational cases, evidence, tasks,

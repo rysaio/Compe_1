@@ -35,10 +35,29 @@ evidence, hypotheses, tasks, action proposals, attention requests, audit events,
 and memory references.
 _Avoid_: Case workflow stage, linear process state
 
+**Upstream Security Platform**:
+An external security product that owns telemetry ingestion, detections, native
+alerts, native cases, or native automations. The harness consumes, explains,
+and coordinates around these systems instead of replacing them.
+_Avoid_: In-house SIEM, in-house SOAR, duplicate detection platform
+
+**Probe-first, Wazuh-compatible**:
+The v1 integration posture: the harness can gather basic investigation evidence
+through built-in probes without requiring a deployed SIEM/SOAR, while remaining
+compatible with Wazuh and other upstream security platforms when they exist.
+_Avoid_: Wazuh-only AI panel, self-built SIEM/EDR
+
 **Signal Collectors**:
 Upstream systems or adapters that provide security signals, such as Wazuh,
 Sysmon, EDR, SIEM, firewall, or log-platform sources.
 _Avoid_: In-house detection engine
+
+**Evidence Probe Kit**:
+Built-in, lightweight evidence-gathering tools the agent can call during an
+investigation, such as osquery, event-log readers, Zeek or NetFlow importers,
+and artifact readers. It provides queryable evidence; it is not a continuous
+telemetry, detection, or endpoint-protection platform.
+_Avoid_: Self-built EDR, full collector platform, detection engine
 
 **Evidence Tools**:
 Tools that gather or enrich evidence for an operational case, such as asset,
@@ -49,6 +68,12 @@ _Avoid_: Action executor
 The durable record of what the agent and human operators need to do, are doing,
 have done, and are waiting on for each operational case.
 _Avoid_: Workflow engine, hidden model memory, informal chat history
+
+**Wake Gate**:
+The deterministic gate that decides whether a signal, schedule, or operator
+event should consume agent runtime and human attention. It controls run cost and
+attention pressure; it is not a threat detection or correlation engine.
+_Avoid_: SIEM correlation, risk-based alerting, detection rule
 
 **Policy Gate**:
 The deterministic permission and safety boundary that decides whether an agent
@@ -82,4 +107,4 @@ _Avoid_: Unstructured transcript
 **Operator Workbench**:
 The human-facing SOC operations interface that shows cases, case state, tasks,
 evidence, action proposals, attention requests, explanations, and audit history.
-_Avoid_: Chat-first UI
+_Avoid_: Chat-first UI, CLI-first security tool
