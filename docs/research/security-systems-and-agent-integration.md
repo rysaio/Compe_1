@@ -475,7 +475,8 @@ The product should own:
 
 - case-centric investigation state
 - agent-run traces
-- task ledger
+- case work items (business-level work tracking)
+- agent jobs (runtime-level execution scheduling)
 - evidence normalization
 - explanation for non-specialist operators
 - policy-gated action proposals

@@ -18,10 +18,10 @@ time.
 _Avoid_: Security workflow bot, one-shot SOC chatbot
 
 **Agent Loop**:
-A repeated observe-plan-act-reflect cycle where the agent reads the current
-security operations state, chooses useful next work, calls tools, updates task
-state, and continues or sleeps until new work appears.
-_Avoid_: Single model call, one-time analysis step
+An observe-plan-act-record cycle that runs bounded agent work over an
+Operational Case or Case Work Item, then stops with a recorded outcome. A new
+run is triggered by a new agent job, not by open-ended polling.
+_Avoid_: Single model call, one-time analysis step, unbounded polling loop
 
 **Operational Case**:
 A user-facing security operations work item formed from one or more alerts,
@@ -30,10 +30,47 @@ response, or closure.
 _Avoid_: Raw event, single alert, detection
 
 **Case State**:
-The current object set attached to an operational case, such as signals,
-evidence, hypotheses, tasks, action proposals, attention requests, audit events,
-and memory references.
-_Avoid_: Case workflow stage, linear process state
+The current object set attached to an operational case: evidence, case work
+items, and audit trail entries. Action proposals are a type of case work item;
+approval requests are case work items in awaiting_approval state; execution
+records are audit trail events.
+_Avoid_: Case workflow stage, linear process state, hidden model memory
+
+**Case Work Item**:
+A security work item inside an operational case that advances the case's
+investigation, judgment, response, or review. Business states: pending,
+in_progress, completed, failed, awaiting_approval. awaiting_approval is a
+business state, not a scheduling state; when approval completes, the system
+creates or releases a corresponding agent job. Action proposals are a kind of
+case work item. Case work items must serve the operational case's security
+objective; they must not cover general asset maintenance, contact backfill,
+generic report writing, project management, or unrelated IT tickets.
+_Avoid_: Queue message, scheduler task, hidden model plan, general IT work item
+
+**Agent Job**:
+A bounded runtime work unit that drives the SOC Operator Agent or agent tool
+chain to perform security operations work on an Operational Case or Case Work
+Item. It does not include runtime maintenance tasks, queue cleanup, adapter
+health checks, or deterministic signal intake.
+_Avoid_: Runtime maintenance task, scheduler housekeeping, infrastructure job
+
+**Evidence Protocol**:
+A domain rule set that defines the minimum evidence, known gaps, and confidence
+constraints required before the agent may present a conclusion, recommend an
+action, or request execution. It does not prescribe a fixed investigation
+order. When evidence conditions are not met, the agent may still produce
+output, but must change the output type — flagging gaps and lowering confidence
+rather than halting. Evidence Protocol applies to case work items that support
+security conclusions or action recommendations; evidence-gathering or review
+work items are primarily constrained by the case objective and tool
+permissions, not necessarily by Evidence Protocol.
+_Avoid_: Fixed workflow, playbook, mandatory step sequence
+
+**Signal Intake**:
+The deterministic processing of incoming security signals before the wake gate:
+parsing, field normalization, deduplication, and merging into existing cases.
+Signal intake does not call the model.
+_Avoid_: AI-driven triage, agent-based signal classification
 
 **Upstream Security Platform**:
 An external security product that owns telemetry ingestion, detections, native
@@ -63,11 +100,6 @@ _Avoid_: Self-built EDR, full collector platform, detection engine
 Tools that gather or enrich evidence for an operational case, such as asset,
 host, process, IP, domain, vulnerability, allowlist, or historical-alert lookup.
 _Avoid_: Action executor
-
-**Task Ledger**:
-The durable record of what the agent and human operators need to do, are doing,
-have done, and are waiting on for each operational case.
-_Avoid_: Workflow engine, hidden model memory, informal chat history
 
 **Wake Gate**:
 The deterministic gate that decides whether a signal, schedule, or operator
@@ -105,6 +137,7 @@ policy decisions, human approvals, actions executed, and outcomes.
 _Avoid_: Unstructured transcript
 
 **Operator Workbench**:
-The human-facing SOC operations interface that shows cases, case state, tasks,
-evidence, action proposals, attention requests, explanations, and audit history.
+The human-facing SOC operations interface that shows cases, case state, case
+work items (including action proposals), evidence, attention requests,
+explanations, and audit history.
 _Avoid_: Chat-first UI, CLI-first security tool

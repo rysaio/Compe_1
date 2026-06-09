@@ -9,9 +9,9 @@
 The project is a security operations harness, not a detection platform, fixed
 workflow bot, one-shot chatbot, SIEM replacement, SOAR replacement, or EDR
 replacement. The v1 must prove that an agent can keep working around
-operational cases, a task ledger, evidence probes, tools, wake gates, policy
-gates, and audit records before the project invests in heavier workflow or
-agent frameworks.
+operational cases, case work items, agent jobs, evidence probes, tools, wake
+gates, policy gates, and audit records before the project invests in heavier
+workflow or agent frameworks.
 
 ## In scope
 
@@ -36,8 +36,8 @@ agent frameworks.
   upstream signal, case, automation, or response-action sources when present.
 - A small built-in evidence probe kit provides investigation-time access to
   endpoint, host-log, network-flow, and artifact evidence.
-- Postgres is the durable source of truth for cases, tasks, actions, audit, and
-  structured operational memory.
+- Postgres is the durable source of truth for cases, case work items, agent
+  jobs, audit records, and structured operational memory.
 - The first useful product should be a core-capable MVP that can later harden
   into a stronger runtime.
 
@@ -52,7 +52,9 @@ Use Next.js for the operator cockpit, case views, approval surfaces, and API
 routes. Use Vercel AI SDK/provider SDKs for streaming model interaction,
 structured model calls, tool-calling UI behavior, and the first agent execution
 surface. Use a dedicated TypeScript worker loop to run the security operations
-agent over the Postgres task ledger. Include a small evidence probe kit for
+agent by executing agent jobs from a Postgres-native job queue (pg-boss) and
+writing results back to case work items and audit trail. Include a small
+evidence probe kit for
 investigation-time evidence gathering, such as osquery, event-log readers, Zeek
 or NetFlow importers, and artifact readers. Use a minimal deterministic wake
 gate before consuming agent runtime and human attention. Use deterministic
@@ -76,7 +78,7 @@ runtime that does not match the TypeScript-first direction.
 
 | Category | Notes |
 |---|---|
-| Boundary conditions | The worker loop must not hide business truth in model memory; it must read and write the Postgres task ledger. |
+| Boundary conditions | The worker loop must not hide business truth in model memory; it must read and write Postgres case work items and audit trail. |
 | Failure modes | A simple worker loop may be weaker than Temporal for crash recovery and long human waits. |
 | Risks | The harness may drift into rebuilding SIEM/SOAR/EDR features or over-triggering agent runs. Deferring Mastra may require hand-writing small tool registry, eval, trace, or memory conventions. |
 | Mitigation | Keep worker tasks leased, idempotent, auditable, wake-gated, and policy-gated; keep evidence probes investigation-scoped; keep upstream platform ownership explicit; keep agent concerns isolated so Mastra or Temporal can be added later. |
@@ -84,10 +86,10 @@ runtime that does not match the TypeScript-first direction.
 ## Acceptance criteria
 
 - AC-1 The v1 dependency plan does not require Temporal, Celery, or Mastra.
-- AC-2 The v1 app has one durable business truth source for cases, tasks,
-  actions, audit records, and structured operational memory: Postgres.
-- AC-3 The v1 agent runtime is a dedicated TypeScript worker loop that consumes
-  task-ledger work and writes auditable progress.
+- AC-2 The v1 app has one durable business truth source for cases, case work
+  items, agent jobs, audit records, and structured operational memory: Postgres.
+- AC-3 The v1 agent runtime is a dedicated TypeScript worker loop that executes
+  agent jobs and writes results back to case work items and audit trail.
 - AC-4 Signals, schedules, or operator events cannot consume agent runtime
   without passing a minimal deterministic wake gate.
 - AC-5 Model or agent output cannot execute a real action unless a deterministic
@@ -104,11 +106,14 @@ runtime that does not match the TypeScript-first direction.
 
 | Entity | Type | Key fields | Relationship |
 |---|---|---|---|
-| Security Operations Harness | Product concept | tools, task state, policy, audit | Hosts the agent loop |
+| Security Operations Harness | Product concept | tools, case work items, policy, audit | Hosts the agent loop |
 | Evidence Probe Kit | Tool surface | probe type, query, target, result, retention | Gathers investigation-time evidence |
-| Agent Loop | Runtime behavior | observe, plan, act, record | Runs over the task ledger |
-| Operational Case | Business object | status, severity, evidence, actions | Contains tasks and audit |
-| Task Ledger | Durable state | task status, lease, result, audit links | Drives worker execution |
+| Agent Loop | Runtime behavior | observe, plan, act, record | Bounded run over case work items |
+| Operational Case | Business object | status, severity, evidence, work items | Parent of evidence, work items, audit |
+| Case Work Item | Business state | status, type, case_id, outcome, audit links | Business-level work inside a case |
+| Agent Job | Runtime state | job type, case_id, work_item_id, lease, retry | Drives bounded agent runs |
+| Evidence Protocol | Domain rule | case type, required evidence, gap rules, confidence | Constrains conclusions and action proposals |
+| Signal Intake | Processing step | signal type, parser, normalization, dedup | Deterministic pre-wake-gate processing |
 | Wake Gate | Runtime boundary | event type, priority, cooldown, budget, reason | Controls agent runtime and attention consumption |
 | Policy Gate | Safety boundary | action type, target, approval, deny reason | Controls real actions |
 

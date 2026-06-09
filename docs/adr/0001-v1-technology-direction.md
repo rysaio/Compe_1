@@ -7,9 +7,9 @@ Date: 2026-06-07
 
 This project builds a security operations harness rather than a one-shot SOC
 chatbot, fixed workflow bot, or detection platform. The first useful product
-must prove a persistent agent loop around operational cases, task state, tools,
-policy checks, and audit records before investing in heavier workflow or
-platform infrastructure.
+must prove a bounded agent loop around operational cases, case work items,
+agent jobs, policy checks, and audit records before investing in heavier
+workflow or platform infrastructure.
 
 The v1 needs to be a core-capable MVP that can gather real investigation
 evidence without requiring the user to already run a SIEM/SOAR, while keeping
@@ -28,8 +28,8 @@ Use a TypeScript-first stack for v1:
   model calls, tool-calling UI behavior, and the first agent execution surface.
 - A dedicated TypeScript background worker loop for the security operations
   agent runtime.
-- Postgres as the source of truth for operational cases, task ledger, action
-  ledger, audit records, and structured operational memory.
+- Postgres as the source of truth for operational cases, case work items,
+  agent jobs, audit records, and structured operational memory.
 - A minimal deterministic wake gate to decide whether signals, schedules, or
   operator events should consume agent runtime and human attention.
 - Deterministic policy gates before any real action is executed.
@@ -55,10 +55,11 @@ later layer if the project starts rebuilding tool registry, evals, tracing, or
 agent-memory features by hand.
 
 For the "Temporal vs Celery" choice, v1 chooses neither as a mandatory runtime.
-Use a Postgres-backed task ledger plus a TypeScript worker loop. Keep the
-runtime boundaries narrow enough that Temporal can later replace or strengthen
-the worker loop if long-running durability, crash recovery, and compensation
-become the next bottleneck. Celery is not a default fit for the TypeScript-first
+Use Postgres-backed case work items and a Postgres-native job queue (pg-boss)
+for agent jobs, plus a TypeScript worker loop. Keep the runtime boundaries
+narrow enough that Temporal can later replace or strengthen the worker loop if
+long-running durability, crash recovery, and compensation become the next
+bottleneck. Celery is not a default fit for the TypeScript-first
 v1 unless a future Python subsystem becomes the canonical worker runtime.
 
 ## Consequences
@@ -74,7 +75,7 @@ v1 unless a future Python subsystem becomes the canonical worker runtime.
   continuous fleet telemetry or detection platform.
 - Wake gating must remain about agent runtime cost and attention pressure, not
   about replacing upstream detection, risk scoring, or correlation.
-- The first worker loop must be intentionally shaped around task leasing,
+- The first worker loop must be intentionally shaped around agent job leasing,
   retries, idempotent tools, policy checks, and audit writes so the later
   Temporal upgrade path remains feasible.
 - Some durability features are explicitly deferred: crash-proof workflow replay,

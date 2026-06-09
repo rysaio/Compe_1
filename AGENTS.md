@@ -32,8 +32,9 @@ auditable trail.
 
 Keep detection and raw telemetry platforms as upstream capabilities from tools
 such as Wazuh, Sysmon, EDR, SIEM, firewalls, or log platforms. This project owns
-the operations harness around those signals: case handling, task ledger, action
-policy, explanation, escalation, audit, and operator experience.
+the operations harness around those signals: case handling, case work items,
+agent jobs, action policy, explanation, escalation, audit, and operator
+experience.
 
 For v1, use a probe-first, Wazuh-compatible integration posture. The product
 should work without requiring the user to already run Wazuh, Splunk, or an EDR,
@@ -46,11 +47,13 @@ duplicating it.
 
 Model the product as aligned harness components, not as a linear workflow:
 `SOC Operator Agent`, `Evidence Probe Kit`, `Signal Collectors`,
-`Evidence Tools`, `Operational Case`, `Case State`, `Task Ledger`, `Wake Gate`,
-`Policy Gate`, `Action Executors`, `Operator Attention Channel`,
-`Operational Memory`, `Audit Trail`, and `Operator Workbench`.
+`Evidence Tools`, `Operational Case`, `Case State`, `Case Work Item`,
+`Agent Job`, `Evidence Protocol`, `Signal Intake`, `Wake Gate`, `Policy Gate`,
+`Action Executors`, `Operator Attention Channel`, `Operational Memory`,
+`Audit Trail`, and `Operator Workbench`.
 
 When designing features, keep the product effect centered on a working SOC
-system. The user experience should surface operational cases, evidence, tasks,
-attention requests, action proposals, explanations, and audit history; chat is
+system. The user experience should surface operational cases, evidence, case work
+items (including action proposals), attention requests, explanations, and
+audit history; chat is
 only a control and clarification channel, not the primary product shape.
