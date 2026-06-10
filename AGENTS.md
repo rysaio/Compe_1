@@ -12,6 +12,13 @@ This repo uses the default triage label vocabulary. See `docs/agents/triage-labe
 
 This repo uses a single-context domain docs layout. See `docs/agents/domain.md`.
 
+### Git authorship
+
+Agents should commit their own completed changes for traceability. Use the
+agent's own commit author, for example `git commit --author="Codex
+<codex@openai.com>"`, and do not add the human user as a co-author unless the
+user explicitly requests it.
+
 ## Project philosophy
 
 This project builds a security operations harness, not a one-shot chatbot or a
