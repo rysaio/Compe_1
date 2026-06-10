@@ -428,7 +428,8 @@ Best fit for v1:
 ## Proposed V1 Integration Architecture
 
 ```text
-Operator Workbench
+Harness Service API
+  <- Operator Workbench or external system
   -> Operational Case
   -> Agent Run
   -> Tool Registry
@@ -511,4 +512,3 @@ The product should not own:
 4. Decide the normalized evidence schema.
    Recommendation: define a small common model around entity, observation,
    source, timestamp, confidence, and provenance.
-

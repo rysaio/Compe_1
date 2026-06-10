@@ -17,6 +17,13 @@ use tools, maintain tasks, act within permissions, and leave an audit trail over
 time.
 _Avoid_: Security workflow bot, one-shot SOC chatbot
 
+**Harness Service API**:
+The API-first service surface for creating cases, submitting signals, reading
+evidence, managing case work items, requesting or recording approvals, starting
+agent work, and reading audit history. User interfaces and external systems
+consume this API; they are not the source of truth.
+_Avoid_: UI-owned business state, dashboard-only product, chat-only control
+
 **Agent Loop**:
 An observe-plan-act-record cycle that runs bounded agent work over an
 Operational Case or Case Work Item, then stops with a recorded outcome. A new
@@ -137,7 +144,8 @@ policy decisions, human approvals, actions executed, and outcomes.
 _Avoid_: Unstructured transcript
 
 **Operator Workbench**:
-The human-facing SOC operations interface that shows cases, case state, case
-work items (including action proposals), evidence, attention requests,
-explanations, and audit history.
-_Avoid_: Chat-first UI, CLI-first security tool
+An optional human-facing SOC operations interface built on top of the Harness
+Service API. It shows cases, case state, case work items (including action
+proposals), evidence, attention requests, explanations, and audit history, but
+does not define the core product boundary.
+_Avoid_: Source of truth, chat-first UI, CLI-first security tool

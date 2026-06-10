@@ -22,8 +22,8 @@ systems when present.
 
 Use a TypeScript-first stack for v1:
 
-- Next.js for the web console, operator cockpit, case views, approval surfaces,
-  and API routes.
+- Next.js for the first harness service API surface and an optional reference
+  operator interface for case views, approval surfaces, and audit views.
 - Vercel AI SDK and provider SDKs for streaming model interaction, structured
   model calls, tool-calling UI behavior, and the first agent execution surface.
 - A dedicated TypeScript background worker loop for the security operations
@@ -50,7 +50,8 @@ integrate with that ownership rather than duplicating it.
 Do not make Temporal, Celery, or Mastra mandatory v1 dependencies.
 
 For the "Next.js/Vercel vs Mastra" choice, v1 chooses Next.js plus Vercel AI SDK
-and provider SDKs as the first agentic web surface. Mastra remains an optional
+and provider SDKs as the first API-first agentic service surface, with any
+operator UI treated as a consumer of that service. Mastra remains an optional
 later layer if the project starts rebuilding tool registry, evals, tracing, or
 agent-memory features by hand.
 
@@ -84,5 +85,5 @@ v1 unless a future Python subsystem becomes the canonical worker runtime.
   becomes the preferred upgrade path rather than adding ad hoc retry branches.
 - If v1 proves the agent layer needs framework-owned tool registry, evals,
   tracing, or memory primitives, Mastra becomes the preferred agent-layer
-  upgrade path rather than spreading those concerns across UI routes and worker
-  code.
+  upgrade path rather than spreading those concerns across service routes and
+  worker code.

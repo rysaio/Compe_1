@@ -46,14 +46,15 @@ automations, or response actions, integrate with that ownership rather than
 duplicating it.
 
 Model the product as aligned harness components, not as a linear workflow:
-`SOC Operator Agent`, `Evidence Probe Kit`, `Signal Collectors`,
-`Evidence Tools`, `Operational Case`, `Case State`, `Case Work Item`,
-`Agent Job`, `Evidence Protocol`, `Signal Intake`, `Wake Gate`, `Policy Gate`,
-`Action Executors`, `Operator Attention Channel`, `Operational Memory`,
-`Audit Trail`, and `Operator Workbench`.
+`Harness Service API`, `SOC Operator Agent`, `Evidence Probe Kit`,
+`Signal Collectors`, `Evidence Tools`, `Operational Case`, `Case State`,
+`Case Work Item`, `Agent Job`, `Evidence Protocol`, `Signal Intake`,
+`Wake Gate`, `Policy Gate`, `Action Executors`, `Operator Attention Channel`,
+`Operational Memory`, `Audit Trail`, and `Operator Workbench`.
 
-When designing features, keep the product effect centered on a working SOC
-system. The user experience should surface operational cases, evidence, case work
-items (including action proposals), attention requests, explanations, and
-audit history; chat is
-only a control and clarification channel, not the primary product shape.
+Design API-first. The core product surface is the harness service API that lets
+frontends, existing hospital or enterprise systems, and future integrations
+create cases, submit signals, manage case work items, request approvals, read
+evidence, and inspect audit history. Operator Workbench is an optional reference
+interface built on that API, not the source of truth. Chat is only a control and
+clarification channel, not the primary product shape.

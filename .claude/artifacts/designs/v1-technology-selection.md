@@ -48,13 +48,15 @@ TypeScript worker loop** for v1.
 
 Do not include Mastra, Temporal, or Celery as mandatory v1 dependencies.
 
-Use Next.js for the operator cockpit, case views, approval surfaces, and API
-routes. Use Vercel AI SDK/provider SDKs for streaming model interaction,
-structured model calls, tool-calling UI behavior, and the first agent execution
-surface. Use a dedicated TypeScript worker loop to run the security operations
-agent by executing agent jobs from a Postgres-native job queue (pg-boss) and
-writing results back to case work items and audit trail. Include a small
-evidence probe kit for
+Use Next.js for the first harness service API surface and an optional reference
+operator interface for case views, approval surfaces, and audit views. User
+interfaces and external systems should consume the service API rather than own
+business state. Use Vercel AI SDK/provider SDKs for streaming model
+interaction, structured model calls, tool-calling behavior, and the first agent
+execution surface. Use a dedicated TypeScript worker loop to run the security
+operations agent by executing agent jobs from a Postgres-native job queue
+(pg-boss) and writing results back to case work items and audit trail. Include
+a small evidence probe kit for
 investigation-time evidence gathering, such as osquery, event-log readers, Zeek
 or NetFlow importers, and artifact readers. Use a minimal deterministic wake
 gate before consuming agent runtime and human attention. Use deterministic
@@ -90,16 +92,18 @@ runtime that does not match the TypeScript-first direction.
   items, agent jobs, audit records, and structured operational memory: Postgres.
 - AC-3 The v1 agent runtime is a dedicated TypeScript worker loop that executes
   agent jobs and writes results back to case work items and audit trail.
-- AC-4 Signals, schedules, or operator events cannot consume agent runtime
+- AC-4 The v1 exposes a harness service API as the core product surface; any
+  operator UI is a consumer of that API, not the source of truth.
+- AC-5 Signals, schedules, or operator events cannot consume agent runtime
   without passing a minimal deterministic wake gate.
-- AC-5 Model or agent output cannot execute a real action unless a deterministic
+- AC-6 Model or agent output cannot execute a real action unless a deterministic
   policy gate approves it.
-- AC-6 The v1 product can gather basic investigation evidence without requiring
+- AC-7 The v1 product can gather basic investigation evidence without requiring
   the user to deploy Wazuh, Splunk, or an EDR first.
-- AC-7 The v1 boundary stays Wazuh-compatible while not rebuilding SIEM/SOAR/EDR
+- AC-8 The v1 boundary stays Wazuh-compatible while not rebuilding SIEM/SOAR/EDR
   detection, correlation, playbook, endpoint-protection, fleet-telemetry, or
   data-lake capabilities.
-- AC-8 The architecture keeps explicit upgrade triggers for Temporal and Mastra
+- AC-9 The architecture keeps explicit upgrade triggers for Temporal and Mastra
   rather than treating either as a default dependency.
 
 ## Core entities (ontology)
@@ -107,6 +111,7 @@ runtime that does not match the TypeScript-first direction.
 | Entity | Type | Key fields | Relationship |
 |---|---|---|---|
 | Security Operations Harness | Product concept | tools, case work items, policy, audit | Hosts the agent loop |
+| Harness Service API | Service surface | cases, signals, evidence, work items, approvals, audit | Exposes the harness to UIs and external systems |
 | Evidence Probe Kit | Tool surface | probe type, query, target, result, retention | Gathers investigation-time evidence |
 | Agent Loop | Runtime behavior | observe, plan, act, record | Bounded run over case work items |
 | Operational Case | Business object | status, severity, evidence, work items | Parent of evidence, work items, audit |
