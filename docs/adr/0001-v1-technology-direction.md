@@ -3,6 +3,11 @@
 Status: Accepted
 Date: 2026-06-07
 
+Source material:
+
+- `docs/designs/2026-06-07-v1-technology-selection.md`
+- `docs/research/security-systems-and-agent-integration.md`
+
 ## Context
 
 This project builds a security operations harness rather than a one-shot SOC

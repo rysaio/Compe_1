@@ -1,4 +1,11 @@
-# Some misc points I picked from somewhere (Internet, Others, me)
+# Research Inbox
+
+Loose notes, links, and candidate ideas live here before they are promoted into
+a focused research report, design spec, issue, or ADR.
+
+## Original Notes
+
+Some misc points I picked from somewhere (Internet, Others, me)
 > This is a markdown doc made by rysaio - the human maintainer of this repo
 
 ## 1. Some places to find ideas
@@ -21,4 +28,4 @@
 ## the ideas and thoughts might work here 
 > choose something above, applicable to this project.
 
-### 1. 
+### 1.

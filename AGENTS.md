@@ -19,6 +19,14 @@ agent's own commit author, for example `git commit --author="Codex
 <codex@openai.com>"`, and do not add the human user as a co-author unless the
 user explicitly requests it.
 
+## Documentation authority
+
+Durable project knowledge lives in `CONTEXT.md` and `docs/`. Treat
+`.claude/artifacts/` as a tool workspace for generated intermediate artifacts,
+not as the canonical project knowledge base. Promote aligned designs into
+`docs/designs/`, accepted decisions into `docs/adr/`, and stable domain
+language into `CONTEXT.md`.
+
 ## Project philosophy
 
 This project builds a security operations harness, not a one-shot chatbot or a

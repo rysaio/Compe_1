@@ -3,6 +3,12 @@
 > Status: ALIGNED
 > Author: user
 > Last updated: 2026-06-07
+> Decision record: `docs/adr/0001-v1-technology-direction.md`
+> Research input: `docs/research/security-systems-and-agent-integration.md`
+
+This design spec is the aligned source material for ADR 0001. The ADR is the
+accepted decision record; this spec preserves scope, assumptions, acceptance
+criteria, and ontology used to reach that decision.
 
 ## Background
 

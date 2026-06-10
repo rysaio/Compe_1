@@ -1,6 +1,8 @@
 # Security Systems and Agent Integration Research
 
 Date: 2026-06-09
+Decision status: Research input. The accepted v1 technology direction is
+recorded in `docs/adr/0001-v1-technology-direction.md`.
 
 This report summarizes common security-system shapes, how operators use them,
 which parts are suitable for agent tool use, and how the Security Operations
