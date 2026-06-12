@@ -79,6 +79,15 @@ parsing, field normalization, deduplication, and merging into existing cases.
 Signal intake does not call the model.
 _Avoid_: AI-driven triage, agent-based signal classification
 
+**Normalized Signal**:
+The platform-neutral internal representation a signal is mapped into by signal
+intake, so the agent core reasons over a stable contract instead of raw
+vendor-specific alert fields. Source adapters fill it; the core never reads a
+vendor's native payload directly. It is the anti-corruption boundary that keeps
+the core light and makes a new upstream platform an adapter change, not a core
+change.
+_Avoid_: Raw Wazuh alert, vendor-native payload, UI view model
+
 **Upstream Security Platform**:
 An external security product that owns telemetry ingestion, detections, native
 alerts, native cases, or native automations. The harness consumes, explains,
