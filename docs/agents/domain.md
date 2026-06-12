@@ -14,36 +14,28 @@ If any of these files don't exist, **proceed silently**. Don't flag their absenc
 
 ## File structure
 
-Single-context repo (most repos):
+This repo's real layout - single-context, no `src/` yet (pre-implementation):
 
 ```text
 /
 |-- CONTEXT.md
-|-- docs/
-|   |-- README.md
-|   |-- adr/
-|   |   |-- 0001-event-sourced-orders.md
-|   |   `-- 0002-postgres-for-write-model.md
-|   |-- designs/
-|   |-- research/
-|   `-- agents/
-`-- src/
+|-- AGENTS.md
+`-- docs/
+    |-- README.md
+    |-- adr/
+    |   `-- 0001-v1-technology-direction.md
+    |-- designs/
+    |   `-- 2026-06-07-v1-technology-selection.md
+    |-- research/
+    |   |-- security-systems-and-agent-integration.md
+    |   `-- inbox.md
+    `-- agents/
+        |-- issue-tracker.md
+        |-- triage-labels.md
+        `-- domain.md
 ```
 
-Multi-context repo (presence of `CONTEXT-MAP.md` at the root):
-
-```text
-/
-|-- CONTEXT-MAP.md
-|-- docs/adr/                          <- system-wide decisions
-`-- src/
-    |-- ordering/
-    |   |-- CONTEXT.md
-    |   `-- docs/adr/                  <- context-specific decisions
-    `-- billing/
-        |-- CONTEXT.md
-        `-- docs/adr/
-```
+A multi-context repo would instead place `CONTEXT-MAP.md` at the root pointing to per-context `CONTEXT.md` files; this repo is single-context.
 
 ## Use the glossary's vocabulary
 
@@ -51,22 +43,8 @@ When your output names a domain concept (in an issue title, a refactor proposal,
 
 If the concept you need isn't in the glossary yet, that's a signal - either you're inventing language the project doesn't use (reconsider) or there's a real gap (note it for `/grill-with-docs`).
 
-## Respect document authority
-
-Use this order when two documents overlap:
-
-1. `CONTEXT.md` owns domain terms.
-2. `docs/adr/` owns accepted decisions.
-3. `docs/designs/` owns aligned specs and acceptance criteria.
-4. `docs/research/` owns evidence and candidate recommendations.
-5. `.claude/artifacts/` owns tool workspace outputs only.
-
-If a `.claude/artifacts/` file and a `docs/` file describe the same topic,
-prefer the `docs/` file unless the user explicitly asks to inspect raw tool
-output.
-
 ## Flag ADR conflicts
 
 If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
 
-> _Contradicts ADR-0007 (event-sourced orders) - but worth reopening because..._
+> _Contradicts ADR 0001 (v1 technology direction) - but worth reopening because..._
