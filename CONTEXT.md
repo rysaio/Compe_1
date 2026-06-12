@@ -108,6 +108,14 @@ Tools that gather or enrich evidence for an operational case, such as asset,
 host, process, IP, domain, vulnerability, allowlist, or historical-alert lookup.
 _Avoid_: Action executor
 
+**Monitored Asset**:
+A protected entity the harness reasons about during a case, such as a server
+host, an endpoint workstation, a network device, or a network segment. The v1
+posture spans servers, endpoints, and internal-network lateral movement, but the
+first vertical slice focuses on server hosts. An asset is a subject of
+investigation and action; it is not a telemetry source or an evidence record.
+_Avoid_: Signal collector, telemetry feed, evidence record
+
 **Wake Gate**:
 The deterministic gate that decides whether a signal, schedule, or operator
 event should consume agent runtime and human attention. It controls run cost and
