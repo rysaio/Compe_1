@@ -33,5 +33,12 @@ decoded command line, outbound connections, executing user/privilege).
 - Evidence Protocol is parameterised per case type (see CONTEXT.md), so a second
   asset dimension means a new evidence table, not an architecture change.
 - v1 needs a Linux probe set (process-tree reader, `ss`/connection lookup,
-  base64/obfuscation decoder, IP-reputation lookup) and a recommended auditd
-  ruleset as a deployment prerequisite — open question, see grilling handoff.
+  base64/obfuscation decoder, IP-reputation lookup) on the consumption side.
+- Collection-layer setup (auditd rules that make the host emit the right
+  `execve` signals) is an **upstream platform responsibility**, outside the
+  harness boundary — the harness consumes normalized signals, not per-platform
+  collection details (see CONTEXT.md "Upstream Security Platform"). This keeps
+  the agent core light and makes multi-platform support a matter of upstream
+  configuration plus a thin read adapter, not core changes. The slice ships an
+  **optional reference auditd ruleset** as a deployment note to make the demo
+  reproducible; it is not a harness capability and not a glossary concept.
