@@ -29,6 +29,8 @@ Some misc points I picked from somewhere (Internet, Others, me)
    - **「无边界」只指 read/搜索层**(放手取证、扩展取证能力),不指动作。
      ∴ Policy Gate 不冗余:它本就是分级执行策略(低危自动放行/高危需确认/拒绝),
      非「凡动作必人批」。保留为确定性、可审计的单一闸口;权限分级在它内部,别打散。
+   - **→ Promoted (2026-06-13) → ADR 0003.** 核心立场(「v1 别写死 planner」+ 三道闸门内
+     有界、模型驱动的调查)已采纳为决策;多 agent 自选协作仍留 post-v1,本条其余维持候选。
 
 2.  
 

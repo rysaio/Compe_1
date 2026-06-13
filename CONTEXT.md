@@ -30,6 +30,13 @@ Operational Case or Case Work Item, then stops with a recorded outcome. A new
 run is triggered by a new agent job, not by open-ended polling.
 _Avoid_: Single model call, one-time analysis step, unbounded polling loop
 
+**Agent Run**:
+A single bounded execution of the Agent Loop over an Operational Case or Case
+Work Item, started by an Agent Job and ending with a recorded outcome. A run
+stops when its bounded work completes; continued work is a new run from a new
+job, not an open-ended session.
+_Avoid_: Open-ended session, unbounded loop, hidden continuation across jobs
+
 **Operational Case**:
 A user-facing security operations work item formed from one or more alerts,
 events, observations, or action results that need investigation, explanation,
