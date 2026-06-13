@@ -9,6 +9,7 @@ How the engineering skills should consume this repo's domain documentation when 
 - **`docs/designs/`** - read aligned specs when planning or implementing a scoped feature or architectural slice.
 - **`docs/research/`** - read research reports when the task depends on external systems, security tooling, or unresolved recommendations.
 
+Term missing from the glossary = signal, not license to coin one: note it for `/grill-with-docs`.
 If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The producer skill (`/grill-with-docs`) creates them lazily when terms or decisions actually get resolved.
 
 ## File structure
