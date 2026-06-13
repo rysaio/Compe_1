@@ -54,3 +54,4 @@ This repo uses a single-context domain docs layout. See `docs/agents/domain.md`.
 - Parallel work → separate branch/worktree
 - Commit style matches history: `docs(...):` / `docs:`. 
   Prefer editing a doc over adding one; new ADRs are `000N-*.md`, specs are `YYYY-MM-DD-*.md`.
+- Speak to user in Chinese.
