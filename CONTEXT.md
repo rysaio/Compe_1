@@ -8,7 +8,9 @@ application. It is a glossary, not an implementation plan.
 **SOC Operator Agent**:
 The model-driven security operations actor that repeatedly reads operational
 state, uses tools, proposes or performs allowed work, and records progress
-inside the harness.
+inside the harness. At its core it is a general observe-plan-act-record agent
+loop, specialized for security by its skills, prompts, workflow guidance, and an
+approval boundary — not a bespoke engine.
 _Avoid_: Chatbot, assistant persona
 
 **Security Operations Harness**:
@@ -81,9 +83,10 @@ permissions, not necessarily by Evidence Protocol.
 _Avoid_: Fixed workflow, playbook, mandatory step sequence
 
 **Signal Intake**:
-The deterministic processing of incoming security signals before the wake gate:
-parsing, field normalization, deduplication, and merging into existing cases.
-Signal intake does not call the model.
+The deterministic handling of incoming security signals before the wake gate.
+Normalization, deduplication, and burst-merging of raw upstream alerts belong to
+the input/source adapter outside the core; the core receives an already-clean
+Normalized Signal. Signal intake does not call the model.
 _Avoid_: AI-driven triage, agent-based signal classification
 
 **Normalized Signal**:
@@ -133,9 +136,12 @@ investigation and action; it is not a telemetry source or an evidence record.
 _Avoid_: Signal collector, telemetry feed, evidence record
 
 **Wake Gate**:
-The deterministic gate that decides whether a signal, schedule, or operator
-event should consume agent runtime and human attention. It controls run cost and
-attention pressure; it is not a threat detection or correlation engine.
+The deterministic trigger that decides whether a signal, schedule, or operator
+event should consume agent runtime and human attention — in short, what starts
+one Agent Run. With a persistent monitoring platform attached it filters that
+platform's alert stream for cost and attention; with no platform attached, a
+single human prompt is the trigger. It controls run cost and attention pressure;
+it is not a threat detection or correlation engine.
 _Avoid_: SIEM correlation, risk-based alerting, detection rule
 
 **Policy Gate**:
