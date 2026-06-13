@@ -4,8 +4,7 @@ How the engineering skills should consume this repo's domain documentation when 
 
 ## Before exploring, read these
 
-- **`CONTEXT.md`** at the repo root, or
-- **`CONTEXT-MAP.md`** at the repo root if it exists - it points at one `CONTEXT.md` per context. Read each one relevant to the topic.
+- **`CONTEXT.md`** at the repo root
 - **`docs/adr/`** - read ADRs that touch the area you're about to work in. In multi-context repos, also check `src/<context>/docs/adr/` for context-scoped decisions.
 - **`docs/designs/`** - read aligned specs when planning or implementing a scoped feature or architectural slice.
 - **`docs/research/`** - read research reports when the task depends on external systems, security tooling, or unresolved recommendations.
@@ -14,28 +13,22 @@ If any of these files don't exist, **proceed silently**. Don't flag their absenc
 
 ## File structure
 
-This repo's real layout - single-context, no `src/` yet (pre-implementation):
+This repo's current layout - single-context:
 
 ```text
 /
 |-- CONTEXT.md
+|-- CLAUDE.md       #linked to AGENTS.md for Claude Code
 |-- AGENTS.md
 `-- docs/
-    |-- README.md
     |-- adr/
-    |   `-- 0001-v1-technology-direction.md
     |-- designs/
-    |   `-- 2026-06-07-v1-technology-selection.md
     |-- research/
-    |   |-- security-systems-and-agent-integration.md
-    |   `-- inbox.md
-    `-- agents/
+    |-- agents/
         |-- issue-tracker.md
         |-- triage-labels.md
         `-- domain.md
 ```
-
-A multi-context repo would instead place `CONTEXT-MAP.md` at the root pointing to per-context `CONTEXT.md` files; this repo is single-context.
 
 ## Use the glossary's vocabulary
 
