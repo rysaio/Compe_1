@@ -2,7 +2,7 @@
 
 This file provides guidance to Codex/Claude Code when working with code in this repository.
 
-This is a planning-to-coding-stage repo, from docs only to first code.
+This is a start-stage repo, doing the first code.
 
 This project builds a security operations agent harness product.
 The product is API-first: the Harness Service API is the product surface, and any
