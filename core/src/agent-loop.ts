@@ -21,7 +21,7 @@
  * Terms follow CONTEXT.md exactly:
  *   Agent Loop, Agent Run, Audit Trail, Evidence Tools, Action Executors, Policy Gate.
  */
-import { generateText, isLoopFinished, stepCountIs, type CoreMessage } from "ai";
+import { generateText, isLoopFinished, stepCountIs, type ModelMessage } from "ai";
 import type { AuditTrail } from "./audit-trail.js";
 import type { RunStore, RunStatus } from "./run-store.js";
 import { allTools } from "./tools.js";
@@ -343,9 +343,9 @@ export async function resumeAgentLoop(
     ],
   };
 
-  const resumeMessages: CoreMessage[] = [
-    ...(persistedMessages as CoreMessage[]),
-    approvalResponseMsg as unknown as CoreMessage,
+  const resumeMessages: ModelMessage[] = [
+    ...(persistedMessages as ModelMessage[]),
+    approvalResponseMsg as unknown as ModelMessage,
   ];
 
   let stepIndex = 0;

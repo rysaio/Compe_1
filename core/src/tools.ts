@@ -66,7 +66,8 @@ export const blockIpTool = tool({
     reason: z.string().describe("Reason for blocking"),
   }),
   needsApproval: true,
-  // execute is intentionally omitted — the harness invokes it only after approval
+  // execute runs only AFTER human approval: needsApproval makes the SDK pause
+  // (emitting tool-approval-request) instead of calling this on the first pass.
   execute: async ({ ip, reason }) => {
     // Stub — real Action Executor plugs in here
     return { blocked: ip, reason, executedAt: new Date().toISOString() };

@@ -100,6 +100,12 @@ OPENAI_API_KEY=... OPENAI_BASE_URL=... OPENAI_MODEL=... npm test
 
 Unit tests use a `FakeTurn` script model — no network. Integration tests gate on env presence and skip cleanly when absent.
 
+`vitest` transpiles with esbuild and does **not** type-check, so run the type checker separately before committing:
+
+```bash
+npm run typecheck   # tsc --noEmit
+```
+
 ## Adding more tools
 
 **Evidence Tool** (automatic):
@@ -122,7 +128,7 @@ export const myActionTool = tool({
 });
 ```
 
-Add the tool name to `ACTION_TOOL_NAMES` in `agent-loop.ts`, and add it to `evidenceTools` or `actionTools` in `tools.ts`.
+Add it to `evidenceTools` or `actionTools` in `tools.ts` — that's the only step. The approval path is driven entirely by the tool's `needsApproval` flag: the SDK pauses (emits `tool-approval-request`) for `needsApproval: true` tools, so `agent-loop.ts` needs no per-tool list.
 
 ## Replacing adapters
 
