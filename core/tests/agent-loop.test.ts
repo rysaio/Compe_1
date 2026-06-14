@@ -326,3 +326,77 @@ describe("Agent Loop — human-approval path", () => {
     expect(kinds).toContain("approval_denied");
   });
 });
+
+// ─── Audit records tool evidence ──────────────────────────────────────────────
+// Per CONTEXT.md, the Audit Trail is the durable record of "evidence gathered ...
+// actions executed". A step_finished entry names the tools but not the evidence;
+// these tests pin the contract that the trail also records each tool call's input
+// and result.
+
+describe("Agent Loop — audit records tool evidence", () => {
+  let auditTrail: InMemoryAuditTrail;
+  let runStore: InMemoryRunStore;
+
+  beforeEach(() => {
+    auditTrail = new InMemoryAuditTrail();
+    runStore = new InMemoryRunStore();
+  });
+
+  it("records a tool_called entry naming the evidence tool the model invoked", async () => {
+    const model = createFakeModel([
+      {
+        toolCalls: [
+          { toolCallId: "tc-ev-1", toolName: "lookupAsset", args: { hostname: "host-1" } },
+        ],
+        finishReason: "tool-calls",
+      },
+      { text: "Asset is online.", finishReason: "stop" },
+    ]);
+
+    const runId = makeRunId();
+    await runAgentLoop({
+      runId,
+      caseId: CASE_ID,
+      prompt: "Check host-1",
+      model,
+      auditTrail,
+      runStore,
+    });
+
+    const called = (await auditTrail.listByRun(runId)).filter(
+      (e) => e.kind === "tool_called"
+    );
+    expect(called.length).toBeGreaterThanOrEqual(1);
+    expect(called[0].data.toolName).toBe("lookupAsset");
+  });
+
+  it("records a tool_result entry carrying the evidence the tool returned", async () => {
+    const model = createFakeModel([
+      {
+        toolCalls: [
+          { toolCallId: "tc-ev-2", toolName: "lookupAsset", args: { hostname: "host-2" } },
+        ],
+        finishReason: "tool-calls",
+      },
+      { text: "Done.", finishReason: "stop" },
+    ]);
+
+    const runId = makeRunId();
+    await runAgentLoop({
+      runId,
+      caseId: CASE_ID,
+      prompt: "Check host-2",
+      model,
+      auditTrail,
+      runStore,
+    });
+
+    const results = (await auditTrail.listByRun(runId)).filter(
+      (e) => e.kind === "tool_result"
+    );
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results[0].data.toolName).toBe("lookupAsset");
+    // The actual evidence the stub returned must be in the trail, not just the name.
+    expect(results[0].data.output).toMatchObject({ status: "online" });
+  });
+});

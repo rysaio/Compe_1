@@ -9,7 +9,8 @@ runAgentLoop()
   │
   ├─ AUTOMATIC PATH (Evidence Tools)
   │    generateText + stopWhen:isLoopFinished()
-  │    onStepFinish → AuditTrail.append(step_finished)
+  │    onStepFinish → AuditTrail.append(step_finished
+  │                   + tool_called/tool_result per tool: the evidence gathered)
   │    Returns: { status: "completed" }
   │
   └─ HUMAN-APPROVAL PATH (Action Tools, needsApproval: true)

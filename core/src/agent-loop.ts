@@ -132,10 +132,57 @@ function findPendingApproval(
 // ─── Step finish callback type ────────────────────────────────────────────────
 
 interface StepInfo {
+  stepNumber?: number;
   finishReason: string;
-  toolCalls?: Array<{ toolCallId: string; toolName: string }>;
+  toolCalls?: Array<{ toolCallId: string; toolName: string; input?: unknown }>;
+  toolResults?: Array<{ toolCallId: string; toolName: string; output?: unknown }>;
   text?: string;
   usage?: unknown;
+}
+
+/** Default step cap for one generateText loop (initial run and resume alike). */
+const DEFAULT_MAX_STEPS = 20;
+
+/**
+ * Writes the Audit Trail records for one completed step: a step_finished
+ * summary, plus a tool_called and tool_result entry for every tool the model
+ * invoked — so the trail records the evidence gathered and actions executed
+ * (CONTEXT.md: Audit Trail), not just step boundaries. `label` distinguishes
+ * initial-run steps from resume steps.
+ */
+async function recordStep(
+  auditTrail: AuditTrail,
+  runId: string,
+  step: StepInfo,
+  label: string | number
+): Promise<void> {
+  await auditTrail.append({
+    runId,
+    kind: "step_finished",
+    data: {
+      stepIndex: label,
+      finishReason: step.finishReason,
+      toolCalls: step.toolCalls?.map((tc) => ({
+        id: tc.toolCallId,
+        name: tc.toolName,
+      })),
+      text: step.text,
+    },
+  });
+  for (const tc of step.toolCalls ?? []) {
+    await auditTrail.append({
+      runId,
+      kind: "tool_called",
+      data: { toolCallId: tc.toolCallId, toolName: tc.toolName, input: tc.input },
+    });
+  }
+  for (const tr of step.toolResults ?? []) {
+    await auditTrail.append({
+      runId,
+      kind: "tool_result",
+      data: { toolCallId: tr.toolCallId, toolName: tr.toolName, output: tr.output },
+    });
+  }
 }
 
 // ─── Main agent loop implementation ──────────────────────────────────────────
@@ -151,9 +198,8 @@ async function runWithApprovalCheck(opts: RunAgentLoopOptions): Promise<{
   responseMessages: PersistedMessage[];
   pendingApproval?: PendingApproval;
 }> {
-  const { prompt, model, auditTrail, runId, maxSteps = 20 } = opts;
+  const { prompt, model, auditTrail, runId, maxSteps = DEFAULT_MAX_STEPS } = opts;
 
-  let stepIndex = 0;
   const result = await generateText({
     model,
     tools: allTools,
@@ -162,22 +208,8 @@ async function runWithApprovalCheck(opts: RunAgentLoopOptions): Promise<{
     // isLoopFinished() lets the SDK multi-step until the model says "stop".
     // stepCountIs(maxSteps) is the safety cap.
     stopWhen: [isLoopFinished(), stepCountIs(maxSteps)],
-    onStepFinish: async (step: StepInfo) => {
-      await auditTrail.append({
-        runId,
-        kind: "step_finished",
-        data: {
-          stepIndex,
-          finishReason: step.finishReason,
-          toolCalls: step.toolCalls?.map((tc) => ({
-            id: tc.toolCallId,
-            name: tc.toolName,
-          })),
-          text: step.text,
-        },
-      });
-      stepIndex++;
-    },
+    onStepFinish: (step: StepInfo) =>
+      recordStep(auditTrail, runId, step, step.stepNumber ?? 0),
   });
 
   // Messages are in result.response.messages (SDK v6 API)
@@ -348,25 +380,14 @@ export async function resumeAgentLoop(
     approvalResponseMsg as unknown as ModelMessage,
   ];
 
-  let stepIndex = 0;
   const result = await generateText({
     model,
     tools: allTools,
     system: SYSTEM_PROMPT,
     messages: resumeMessages,
-    stopWhen: [isLoopFinished(), stepCountIs(10)],
-    onStepFinish: async (step: StepInfo) => {
-      await auditTrail.append({
-        runId,
-        kind: "step_finished",
-        data: {
-          stepIndex: `resume-${stepIndex}`,
-          finishReason: step.finishReason,
-          text: step.text,
-        },
-      });
-      stepIndex++;
-    },
+    stopWhen: [isLoopFinished(), stepCountIs(DEFAULT_MAX_STEPS)],
+    onStepFinish: (step: StepInfo) =>
+      recordStep(auditTrail, runId, step, `resume-${step.stepNumber ?? 0}`),
   });
 
   const finalMessages =
