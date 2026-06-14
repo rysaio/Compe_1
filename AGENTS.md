@@ -8,7 +8,7 @@ This project builds a security operations agent harness product.
 The product is API-first: the Harness Service API is the product surface, and any
 operator UI is a consumer of it.
 
-You (Claude/Codex) should defer to the relevant docs when designing.
+You (Claude/Codex) should defer to the relevant docs in exact missions.
 
 ## Project Documentation
 
@@ -31,14 +31,6 @@ durable upward into the right layer below.
   (Codex, Claude) may share this tree. Avoid overwriting any existing files by creating a same-name file, use another name or edit the existing file instead. *Must check before write*.
 
 ## Agent skills
-
-### Issue tracker(ignore now)
-
-Issues are tracked as GitHub issues via the `gh` CLI. See `docs/agents/issue-tracker.md`.(dont need it at the present)
-
-### Triage labels(ignore now)
-
-This repo uses the default triage label vocabulary. See `docs/agents/triage-labels.md`.(dont need it for now)
 
 ### Domain docs
 
