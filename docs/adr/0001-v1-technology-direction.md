@@ -2,6 +2,10 @@
 
 Status: Accepted
 Date: 2026-06-07
+Amended: 2026-06-14 — stack restructured to match ADR 0004: the product core is
+a general observe-plan-act-record Agent Loop plus its approval boundary, and
+Wake Gate and Evidence Tools are reclassified as pluggable external components,
+not core. See ADR 0004 for the reframing.
 
 Source material:
 
@@ -25,25 +29,57 @@ systems when present.
 
 ## Decision
 
-Use a TypeScript-first stack for v1:
+Use a TypeScript-first stack for v1, structured per ADR 0004 into the core
+(the general Agent Loop and its non-negotiable approval boundary) and the
+pluggable external components that attach to it.
 
-- Next.js for the first harness service API surface and an optional reference
-  operator interface for case views, approval surfaces, and audit views.
-- Vercel AI SDK and provider SDKs for streaming model interaction, structured
-  model calls, tool-calling UI behavior, and the first agent execution surface.
-- A dedicated TypeScript background worker loop for the security operations
-  agent runtime.
+### Core: the general Agent Loop and its truth source
+
+The heart of the product is a general observe-plan-act-record Agent Loop,
+specialized for security only by skills, prompts, and workflow guidance. The
+following are core and run even when every external component is detached:
+
+- A dedicated TypeScript background worker loop that runs the Agent Loop as the
+  security operations agent runtime.
 - Postgres as the source of truth for operational cases, case work items,
   agent jobs, audit records, and structured operational memory.
-- A minimal deterministic wake gate to decide whether signals, schedules, or
-  operator events should consume agent runtime and human attention.
-- Deterministic policy gates before any real action is executed.
-- A probe-first, Wazuh-compatible integration posture:
-  - The harness includes a small evidence probe kit for investigation, such as
-    osquery, event-log readers, Zeek or NetFlow importers, and artifact readers.
+- Vercel AI SDK and provider SDKs for streaming model interaction, structured
+  model calls, tool-calling behavior, and the first agent execution surface.
+- Next.js for the first Harness Service API surface and an optional reference
+  operator interface for case views, approval surfaces, and audit views.
+
+### Core: the approval boundary (non-negotiable)
+
+The agent's two-path approval boundary is part of the core, not a pluggable
+component. It is what specializes the general loop for security alongside skills
+and prompts:
+
+- Deterministic Policy Gate before any real action is executed (human-approval
+  path plus automatic rule-based approval).
+- Evidence Protocol as the output constraint on conclusions and action
+  recommendations.
+
+### Pluggable external components (not core)
+
+Per ADR 0004, these decouple from the loop; detach them and the bare Agent Loop
+still runs. They are specific to a given usage/deployment, attached through thin
+seams, and adding a new one is a plugin change, not a core change:
+
+- **Wake Gate** — a minimal deterministic trigger deciding whether a signal,
+  schedule, or operator event should consume agent runtime and human attention.
+  It is "what triggered one Agent Run": a persistent monitoring platform when
+  attached, or a single human prompt when not. The bare loop's degenerate Wake
+  Gate is a prompt entrypoint.
+- **Evidence Tools / probe kit** — a typed, allowlisted evidence-gathering
+  surface the agent may call during an investigation (e.g. osquery, event-log
+  readers, Zeek or NetFlow importers, artifact readers). v1 ships these as a
+  probe-first, Wazuh-compatible posture, but the loop runs with them stubbed:
   - Wazuh, Sysmon, SIEM, EDR, firewall, log-platform, and SOAR capabilities
     remain upstream systems, not code owned by this product.
   - Wazuh is a compatible adapter target, not a hard prerequisite for v1 use.
+- **Source adapter / Signal Intake** — the input adapter that normalizes,
+  dedups, and burst-merges raw upstream alerts into a Normalized Signal before
+  the Wake Gate. It sits outside the core behind a plugin interface.
 
 Do not rebuild SIEM/SOAR capabilities in v1. Detection engineering,
 correlation engines, risk scoring, playbook designers, fleet telemetry
@@ -72,8 +108,16 @@ v1 unless a future Python subsystem becomes the canonical worker runtime.
 
 - v1 stays focused on proving the security operations harness and agent loop
   instead of proving a workflow, SIEM, or SOAR platform.
+- Per ADR 0004, the first build target is the bare Agent Loop — Wake Gate as a
+  prompt entrypoint, Evidence Tools as stubs, Policy Gate and Evidence Protocol
+  as minimal skeletons — running observe-plan-act-record end-to-end before any
+  external component is fleshed out.
 - The system has one durable business truth source: Postgres, not hidden model
   memory or workflow history.
+- Wake Gate, Evidence Tools / probe kit, and the source adapter are pluggable
+  external components: each attaches through a thin seam, and adding or swapping
+  one (a new monitoring platform, a new probe, a new upstream) is a plugin
+  change, not a core change. The core stays agnostic to which are attached.
 - The first integration path optimizes for product independence: the harness can
   gather basic evidence itself, while improving when Wazuh-like or EDR/SIEM
   environments already exist.
