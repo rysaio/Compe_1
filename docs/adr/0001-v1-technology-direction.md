@@ -136,12 +136,15 @@ v1 unless a future Python subsystem becomes the canonical worker runtime.
   prompt entrypoint, Evidence Tools as stubs, Policy Gate and Evidence Protocol
   as minimal skeletons — running observe-plan-act-record end-to-end before any
   external component is fleshed out.
+- The bare loop's approval is the SDK's native tool-approval flag in two modes:
+  human (the tool requires approval before it runs) or automatic (the tool runs
+  unattended). Server-side approval signing and the full Policy Gate are a later
+  build step, not the bare loop.
 - The system has one durable business truth source: Postgres, not hidden model
   memory or workflow history.
-- Wake Gate, Evidence Tools / probe kit, and the source adapter are pluggable
-  external components: each attaches through a thin seam, and adding or swapping
-  one (a new monitoring platform, a new probe, a new upstream) is a plugin
-  change, not a core change. The core stays agnostic to which are attached.
+- The core stays agnostic to which external components (Wake Gate, Evidence
+  Tools / probe kit, source adapter) are attached: swapping or adding one is a
+  plugin change, not a core change.
 - The first integration path optimizes for product independence: the harness can
   gather basic evidence itself, while improving when Wazuh-like or EDR/SIEM
   environments already exist.
