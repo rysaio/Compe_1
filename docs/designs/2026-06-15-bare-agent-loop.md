@@ -1,6 +1,6 @@
 # Bare Agent Loop — 实现规格
 
-> 2026-06-15 · 基于 ADR 0001 + ADR 0004
+> 2026-06-15 · 基于 ADR 0001 + ADR 0004 · 核心架构见 `2026-06-07-v1-technology-selection.md`
 
 ## 技术栈
 
@@ -20,9 +20,9 @@
 - automatic 路径：`ToolLoopAgent` + `onStepFinish` 流式写 Audit Trail
 - human 路径：`generateText` 两次调用（docs 已验证；ToolLoopAgent 的审批 resume 未文档化）
 
-## 与 ADR 0001 的张力
+## 与核心设计的张力
 
-ADR 0001:70-73 描述 Run 终止→`awaiting_approval` Case Work Item→新 Job。Bare loop 直接用 SDK messages 暂停/恢复，不包 Case Work Item+Job 层。**这是有意裁剪（Policy Gate 阶段再做），不改 ADR。**
+核心设计（`2026-06-07-v1-technology-selection.md` →「How the Agent Loop is built」）描述 Run 终止→`awaiting_approval` Case Work Item→新 Job。Bare loop 直接用 SDK messages 暂停/恢复，不包 Case Work Item+Job 层。**这是有意裁剪（Policy Gate 阶段再做），不改设计。**
 
 ## 范围
 

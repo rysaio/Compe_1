@@ -17,16 +17,24 @@ durable upward into the right layer below.
 
 | # | Location | Usage | 
 |---|----------|-------|
-| 1 | `CONTEXT.md` | domain glossary — stable terms, not a plan | 
-| 2 | `docs/adr/` | accepted decisions and their consequences |
-| 3 | `docs/designs/` | aligned specs — scope, assumptions, acceptance criteria | 
-| 4 | `docs/research/` | supporting evidence and candidate ideas | 
+| 1 | `CONTEXT.md` | domain glossary — stable term meanings, not a plan | 
+| 2 | `docs/adr/` | decision records — what was decided, status, why; thin, point to the design, don't carry it |
+| 3 | `docs/designs/` | design substance — what the system is and how it's built; scope, assumptions, acceptance criteria | 
+| 4 | `docs/research/` | user-managed exploration — expansion directions, summaries, open questions, ideas | 
 | 5 | `docs/agents/domain.md` | how agents align design expressions in this repo | 
 
 ## Edit rules
 
-- **Editing in an area** → read the ADR that owns it first (`docs/adr/`). On any
-  overlap, authority is `CONTEXT.md` > `docs/adr/` > `docs/designs/` > `docs/research/`. Higher wins.
+- **Editing in an area** → read the doc that owns the subject first. Ownership is
+  by subject, not a single ranked ladder:
+  - term meaning → `CONTEXT.md`
+  - design substance (what the system is / how it's built) → `docs/designs/`
+  - whether something is decided and what was decided → `docs/adr/` (thin records
+    that point into `docs/designs/` for the substance)
+  - exploration / expansion material → `docs/research/` (user-managed)
+
+  On a conflict, the layer that owns *that subject* wins. An ADR records a
+  decision; it does not carry the design — follow its link into `docs/designs/`.
 - **About to edit any file** → run `git status` / `git diff` first. Other agents
   (Codex, Claude) may share this tree. Avoid overwriting any existing files by creating a same-name file, use another name or edit the existing file instead. *Must check before write*.
 
