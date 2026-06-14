@@ -48,6 +48,30 @@ following are core and run even when every external component is detached:
 - Next.js for the first Harness Service API surface and an optional reference
   operator interface for case views, approval surfaces, and audit views.
 
+### Core: how the Agent Loop is built (SDK vs harness responsibilities)
+
+This boundary is version-independent; it does not depend on which Vercel AI SDK
+major is pinned.
+
+- The within-Run ReAct multi-step loop — the model reasons, calls a typed
+  Evidence Tool, reads the result, and continues — is provided by the Vercel AI
+  SDK's multi-step tool calling, not hand-rolled against a raw provider API.
+- The harness, not the SDK, owns the loop's control flow: per-Run step and
+  budget caps, the Policy Gate check before any real action, the per-step Audit
+  Trail write, and the Evidence Protocol sufficiency check. These are interposed
+  through the SDK's per-step hooks and tool-level execute wrappers; the loop is
+  not handed off to an autonomous black-box run. Determinism stays on the
+  boundary, not the investigation path (ADR 0003) — the model still chooses
+  which tool and when.
+- A Run is bounded (ADR 0003, ADR 0004). Cross-Run continuity is the worker loop
+  leasing the next agent job from pg-boss and starting a new bounded Run, never
+  a long-running SDK session; CONTEXT.md forbids open-ended sessions and
+  unbounded loops for both Agent Loop and Agent Run.
+- A Run terminates at the action-approval boundary: when a recommended action
+  needs human approval, the Run ends and records a Case Work Item in
+  awaiting_approval; approval releases a new agent job that starts the next Run.
+  This is what lets v1 defer long human-wait timers and crash-proof replay.
+
 ### Core: the approval boundary (non-negotiable)
 
 The agent's two-path approval boundary is part of the core, not a pluggable
