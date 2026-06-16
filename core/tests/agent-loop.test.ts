@@ -400,3 +400,110 @@ describe("Agent Loop — audit records tool evidence", () => {
     expect(results[0].data.output).toMatchObject({ status: "online" });
   });
 });
+
+// ─── Classic generic tools ─────────────────────────────────────────────────────
+// The classic tools (calculator, getWeather) exercise the general agent layer
+// (ADR 0004) as flat peers of the security stubs. These pin their deterministic
+// behaviour and that their results reach the Audit Trail like any other tool.
+
+describe("Agent Loop — classic generic tools", () => {
+  let auditTrail: InMemoryAuditTrail;
+  let runStore: InMemoryRunStore;
+
+  beforeEach(() => {
+    auditTrail = new InMemoryAuditTrail();
+    runStore = new InMemoryRunStore();
+  });
+
+  it("runs calculator automatically and records the computed result", async () => {
+    const model = createFakeModel([
+      {
+        toolCalls: [
+          { toolCallId: "tc-calc-1", toolName: "calculator", args: { operation: "add", a: 2, b: 3 } },
+        ],
+        finishReason: "tool-calls",
+      },
+      { text: "2 + 3 = 5.", finishReason: "stop" },
+    ]);
+
+    const runId = makeRunId();
+    const result = await runAgentLoop({
+      runId,
+      caseId: CASE_ID,
+      prompt: "What is 2 + 3?",
+      model,
+      auditTrail,
+      runStore,
+    });
+
+    // calculator omits needsApproval → automatic, run completes without pausing.
+    expect(result.status).toBe("completed");
+
+    const results = (await auditTrail.listByRun(runId)).filter(
+      (e) => e.kind === "tool_result"
+    );
+    const calc = results.find((e) => e.data.toolName === "calculator");
+    expect(calc).toBeDefined();
+    expect(calc!.data.output).toMatchObject({ result: 5 });
+  });
+
+  it("records the division-by-zero guard result rather than throwing", async () => {
+    const model = createFakeModel([
+      {
+        toolCalls: [
+          { toolCallId: "tc-calc-2", toolName: "calculator", args: { operation: "divide", a: 1, b: 0 } },
+        ],
+        finishReason: "tool-calls",
+      },
+      { text: "Cannot divide by zero.", finishReason: "stop" },
+    ]);
+
+    const runId = makeRunId();
+    const result = await runAgentLoop({
+      runId,
+      caseId: CASE_ID,
+      prompt: "Divide 1 by 0",
+      model,
+      auditTrail,
+      runStore,
+    });
+
+    expect(result.status).toBe("completed");
+
+    const results = (await auditTrail.listByRun(runId)).filter(
+      (e) => e.kind === "tool_result"
+    );
+    const calc = results.find((e) => e.data.toolName === "calculator");
+    expect(calc).toBeDefined();
+    expect(calc!.data.output).toMatchObject({ result: null, error: "division by zero" });
+  });
+
+  it("runs getWeather automatically and records its stub reading", async () => {
+    const model = createFakeModel([
+      {
+        toolCalls: [
+          { toolCallId: "tc-weather-1", toolName: "getWeather", args: { city: "Berlin" } },
+        ],
+        finishReason: "tool-calls",
+      },
+      { text: "It is clear in Berlin.", finishReason: "stop" },
+    ]);
+
+    const runId = makeRunId();
+    await runAgentLoop({
+      runId,
+      caseId: CASE_ID,
+      prompt: "Weather in Berlin?",
+      model,
+      auditTrail,
+      runStore,
+    });
+
+    const results = (await auditTrail.listByRun(runId)).filter(
+      (e) => e.kind === "tool_result"
+    );
+    const weather = results.find((e) => e.data.toolName === "getWeather");
+    expect(weather).toBeDefined();
+    expect(weather!.data.output).toMatchObject({ city: "Berlin", conditions: "clear" });
+  });
+});

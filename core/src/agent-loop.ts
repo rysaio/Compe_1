@@ -67,10 +67,10 @@ export interface ResumeAgentLoopOptions {
 
 // ─── System prompt ────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a Security Operations (SOC) agent running inside the Security Operations Harness.
-Your job is to investigate the given case using available Evidence Tools, then—if needed—recommend
-an action via Action Tools (which require human approval through the Policy Gate).
-Be precise and evidence-driven. Record your reasoning.`;
+const SYSTEM_PROMPT = `You are a precise, helpful agent running inside a bounded agent loop.
+Use the available tools when they help answer the request. Some tools require human
+approval before they run; call them when appropriate and the harness will pause for
+approval. Be concise and explain your reasoning.`;
 
 // ─── Pending-approval detection ───────────────────────────────────────────────
 

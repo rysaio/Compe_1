@@ -7,13 +7,13 @@ Security operations agent harness core. Implements the **Agent Loop** (observe-p
 ```
 runAgentLoop()
   │
-  ├─ AUTOMATIC PATH (Evidence Tools)
+  ├─ AUTOMATIC PATH (tools without needsApproval)
   │    generateText + stopWhen:isLoopFinished()
   │    onStepFinish → AuditTrail.append(step_finished
   │                   + tool_called/tool_result per tool: the evidence gathered)
   │    Returns: { status: "completed" }
   │
-  └─ HUMAN-APPROVAL PATH (Action Tools, needsApproval: true)
+  └─ HUMAN-APPROVAL PATH (tools with needsApproval: true)
        generateText stops when SDK detects needsApproval tool
        Messages have tool-approval-request part
        Persists messages in RunStore
@@ -75,11 +75,18 @@ if (result.status === "awaiting_approval") {
 
 ## Tools
 
-| Tool | Type | `needsApproval` | Description |
-|---|---|---|---|
-| `lookupAsset` | Evidence | — (automatic) | Look up a monitored asset by hostname |
-| `lookupIp` | Evidence | — (automatic) | IP reputation lookup |
-| `blockIp` | Action | `true` (human) | Block an IP via Action Executor |
+A flat, unordered set of peers (`allTools`). The only structural distinction is
+per-tool `needsApproval`; there is no category hierarchy. Classic generic tools
+exercise the general agent layer; the security stubs are peers alongside them.
+
+| Tool | `needsApproval` | Description |
+|---|---|---|
+| `calculator` | — (automatic) | Evaluate a basic arithmetic operation |
+| `getWeather` | — (automatic) | Current weather for a city (stub) |
+| `sendEmail` | `true` (human) | Send an email (post-approval) |
+| `lookupAsset` | — (automatic) | Look up a monitored asset by hostname |
+| `lookupIp` | — (automatic) | IP reputation lookup |
+| `blockIp` | `true` (human) | Block an IP on the firewall (post-approval) |
 
 ## Environment variables
 
@@ -109,27 +116,27 @@ npm run typecheck   # tsc --noEmit
 
 ## Adding more tools
 
-**Evidence Tool** (automatic):
+**Automatic tool** (runs unattended):
 ```ts
-export const myEvidenceTool = tool({
+export const myTool = tool({
   description: "...",
   inputSchema: z.object({ ... }),
-  execute: async (args) => { /* real probe */ },
+  execute: async (args) => { /* ... */ },
   // needsApproval omitted → automatic
 });
 ```
 
-**Action Tool** (human approval):
+**Approval tool** (pauses for a human):
 ```ts
 export const myActionTool = tool({
   description: "...",
   inputSchema: z.object({ ... }),
   needsApproval: true,
-  execute: async (args) => { /* real executor, post-approval */ },
+  execute: async (args) => { /* runs only post-approval */ },
 });
 ```
 
-Add it to `evidenceTools` or `actionTools` in `tools.ts` — that's the only step. The approval path is driven entirely by the tool's `needsApproval` flag: the SDK pauses (emits `tool-approval-request`) for `needsApproval: true` tools, so `agent-loop.ts` needs no per-tool list.
+Add it to the flat `allTools` set in `tools.ts` — that's the only step. The approval path is driven entirely by the tool's `needsApproval` flag: the SDK pauses (emits `tool-approval-request`) for `needsApproval: true` tools, so `agent-loop.ts` needs no per-tool list.
 
 ## Replacing adapters
 
