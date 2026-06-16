@@ -6,11 +6,14 @@ Security operations agent harness core. Implements the **Agent Loop** (observe-p
 
 ```
 runAgentLoop()
+  │   Audit Trail writes (both paths):
+  │     onStepFinish                  → step_finished + tool_called (model intent)
+  │     experimental_onToolCallFinish → tool_result per EXECUTION — fires for
+  │         automatic tools AND approved tools executed on resume
   │
   ├─ AUTOMATIC PATH (tools without needsApproval)
   │    generateText + stopWhen:isLoopFinished()
-  │    onStepFinish → AuditTrail.append(step_finished
-  │                   + tool_called/tool_result per tool: the evidence gathered)
+  │    SDK runs the tools unattended; each execution → tool_result
   │    Returns: { status: "completed" }
   │
   └─ HUMAN-APPROVAL PATH (tools with needsApproval: true)
@@ -21,7 +24,8 @@ runAgentLoop()
          │
          └─ resumeAgentLoop()
               Appends tool-approval-response to messages
-              Calls generateText() again → executes approved tool
+              Calls generateText() again → SDK executes approved tool
+              onToolCallFinish records its tool_result (the action executed)
               Returns: { status: "completed" }
 ```
 
@@ -94,7 +98,7 @@ exercise the general agent layer; the security stubs are peers alongside them.
 |---|---|---|
 | `OPENAI_API_KEY` | Yes | — |
 | `OPENAI_BASE_URL` | Yes | — |
-| `OPENAI_MODEL` | No | `gpt-4o-mini` |
+| `OPENAI_MODEL` | No | `gpt-4o-mini` — set to your provider's model id when `OPENAI_BASE_URL` is not OpenAI (e.g. a Qwen id for DashScope) |
 
 ## Testing
 

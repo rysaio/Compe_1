@@ -507,3 +507,91 @@ describe("Agent Loop — classic generic tools", () => {
     expect(weather!.data.output).toMatchObject({ city: "Berlin", conditions: "clear" });
   });
 });
+
+// ─── Audit records approved action results ──────────────────────────────────────
+// CONTEXT.md defines the Audit Trail as the record of "actions executed". When an
+// approval tool is approved and resumed, the SDK executes it in the continuation
+// BEFORE the step loop, so its result never reaches onStepFinish.toolResults. The
+// trail must still record that execution's tool_result.
+
+describe("Agent Loop — audit records approved action results", () => {
+  let auditTrail: InMemoryAuditTrail;
+  let runStore: InMemoryRunStore;
+
+  beforeEach(() => {
+    auditTrail = new InMemoryAuditTrail();
+    runStore = new InMemoryRunStore();
+  });
+
+  it("records a tool_result for an approved action tool after resume", async () => {
+    const model = createFakeModel([
+      {
+        toolCalls: [
+          {
+            toolCallId: "tc-email-1",
+            toolName: "sendEmail",
+            args: { to: "ops@example.com", subject: "Alert", body: "Investigating." },
+          },
+        ],
+        finishReason: "tool-calls",
+      },
+      { text: "Email sent.", finishReason: "stop" },
+    ]);
+
+    const runId = makeRunId();
+    const pause = await runAgentLoop({
+      runId,
+      caseId: CASE_ID,
+      prompt: "Email ops@example.com about the alert",
+      model,
+      auditTrail,
+      runStore,
+    });
+    expect(pause.status).toBe("awaiting_approval");
+
+    const { resumeAgentLoop } = await import("../src/agent-loop.js");
+    await resumeAgentLoop({
+      runId,
+      approval: { toolCallId: "tc-email-1", outcome: "approved" },
+      model,
+      auditTrail,
+      runStore,
+    });
+
+    const results = (await auditTrail.listByRun(runId)).filter(
+      (e) => e.kind === "tool_result"
+    );
+    const email = results.find((e) => e.data.toolName === "sendEmail");
+    expect(email).toBeDefined();
+    expect(email!.data.output).toMatchObject({ sent: true, to: "ops@example.com" });
+  });
+
+  it("records exactly one tool_result per executed tool (no duplicates)", async () => {
+    const model = createFakeModel([
+      {
+        toolCalls: [
+          { toolCallId: "tc-look-1", toolName: "lookupAsset", args: { hostname: "host-9" } },
+        ],
+        finishReason: "tool-calls",
+      },
+      { text: "Asset checked.", finishReason: "stop" },
+    ]);
+
+    const runId = makeRunId();
+    await runAgentLoop({
+      runId,
+      caseId: CASE_ID,
+      prompt: "Check host-9",
+      model,
+      auditTrail,
+      runStore,
+    });
+
+    const results = (await auditTrail.listByRun(runId)).filter(
+      (e) =>
+        e.kind === "tool_result" &&
+        (e.data as { toolCallId?: string }).toolCallId === "tc-look-1"
+    );
+    expect(results).toHaveLength(1);
+  });
+});

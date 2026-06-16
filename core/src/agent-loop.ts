@@ -135,9 +135,23 @@ interface StepInfo {
   stepNumber?: number;
   finishReason: string;
   toolCalls?: Array<{ toolCallId: string; toolName: string; input?: unknown }>;
-  toolResults?: Array<{ toolCallId: string; toolName: string; output?: unknown }>;
   text?: string;
   usage?: unknown;
+}
+
+/**
+ * Minimal shape of the AI SDK v6 `OnToolCallFinishEvent` we record from. The SDK
+ * fires `experimental_onToolCallFinish` after EVERY tool execution — automatic
+ * tools run inside the step loop AND approved tools run in the resume
+ * continuation — so it, not onStepFinish, is the single source of tool_result.
+ * Discriminated on `success`: a failed execution carries `error`, not `output`.
+ */
+interface ToolCallFinishEvent {
+  stepNumber?: number;
+  toolCall: { toolCallId: string; toolName: string; input?: unknown };
+  success: boolean;
+  output?: unknown;
+  error?: unknown;
 }
 
 /** Default step cap for one generateText loop (initial run and resume alike). */
@@ -145,10 +159,12 @@ const DEFAULT_MAX_STEPS = 20;
 
 /**
  * Writes the Audit Trail records for one completed step: a step_finished
- * summary, plus a tool_called and tool_result entry for every tool the model
- * invoked — so the trail records the evidence gathered and actions executed
- * (CONTEXT.md: Audit Trail), not just step boundaries. `label` distinguishes
- * initial-run steps from resume steps.
+ * summary plus a tool_called entry for every tool the model invoked — the
+ * evidence gathered and actions requested (CONTEXT.md: Audit Trail), not just
+ * step boundaries. Tool RESULTS are recorded separately by recordToolResult
+ * (see below): approved action tools execute in the resume continuation, which
+ * never reaches onStepFinish, so tool_result cannot be sourced from here.
+ * `label` distinguishes initial-run steps from resume steps.
  */
 async function recordStep(
   auditTrail: AuditTrail,
@@ -176,13 +192,35 @@ async function recordStep(
       data: { toolCallId: tc.toolCallId, toolName: tc.toolName, input: tc.input },
     });
   }
-  for (const tr of step.toolResults ?? []) {
-    await auditTrail.append({
-      runId,
-      kind: "tool_result",
-      data: { toolCallId: tr.toolCallId, toolName: tr.toolName, output: tr.output },
-    });
-  }
+}
+
+/**
+ * Writes one tool_result entry per completed tool EXECUTION. Fired by
+ * experimental_onToolCallFinish, so it captures automatic tools and approved
+ * action tools alike — including approvals executed in the resume continuation
+ * that bypass onStepFinish (the audit-trail gap this fixes). A failed execution
+ * records its `error` instead of `output`.
+ */
+async function recordToolResult(
+  auditTrail: AuditTrail,
+  runId: string,
+  event: ToolCallFinishEvent
+): Promise<void> {
+  await auditTrail.append({
+    runId,
+    kind: "tool_result",
+    data: event.success
+      ? {
+          toolCallId: event.toolCall.toolCallId,
+          toolName: event.toolCall.toolName,
+          output: event.output,
+        }
+      : {
+          toolCallId: event.toolCall.toolCallId,
+          toolName: event.toolCall.toolName,
+          error: String(event.error),
+        },
+  });
 }
 
 // ─── Main agent loop implementation ──────────────────────────────────────────
@@ -210,6 +248,8 @@ async function runWithApprovalCheck(opts: RunAgentLoopOptions): Promise<{
     stopWhen: [isLoopFinished(), stepCountIs(maxSteps)],
     onStepFinish: (step: StepInfo) =>
       recordStep(auditTrail, runId, step, step.stepNumber ?? 0),
+    experimental_onToolCallFinish: (event: ToolCallFinishEvent) =>
+      recordToolResult(auditTrail, runId, event),
   });
 
   // Messages are in result.response.messages (SDK v6 API)
@@ -388,6 +428,8 @@ export async function resumeAgentLoop(
     stopWhen: [isLoopFinished(), stepCountIs(DEFAULT_MAX_STEPS)],
     onStepFinish: (step: StepInfo) =>
       recordStep(auditTrail, runId, step, `resume-${step.stepNumber ?? 0}`),
+    experimental_onToolCallFinish: (event: ToolCallFinishEvent) =>
+      recordToolResult(auditTrail, runId, event),
   });
 
   const finalMessages =
