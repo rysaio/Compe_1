@@ -17,7 +17,7 @@ import { runAgentLoop, resumeAgentLoop } from "../src/agent-loop.js";
 
 const API_KEY = process.env.OPENAI_API_KEY;
 const BASE_URL = process.env.OPENAI_BASE_URL;
-const MODEL_ID = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+const MODEL_ID = process.env.OPENAI_MODEL ?? "qwen3.6-plus";
 
 const SKIP = !API_KEY || !BASE_URL;
 
@@ -143,6 +143,98 @@ maybeDescribe("Integration — human-approval path (real provider)", () => {
         console.warn(
           "Model did not call blockIp — integration test for approval path not exercised. " +
             "Try a different model or stronger prompt."
+        );
+        expect(["completed", "awaiting_approval"]).toContain(result.status);
+      }
+    },
+    120_000
+  );
+});
+
+// ─── Integration: classic generic tools ──────────────────────────────────────
+// Exercises the general agent layer (ADR 0004) with domain-neutral tools, and
+// proves end-to-end that an APPROVED action tool's execution result reaches the
+// Audit Trail (the bug fixed via experimental_onToolCallFinish).
+
+maybeDescribe("Integration — classic tools (real provider)", () => {
+  it(
+    "runs calculator automatically and records its tool_result",
+    async () => {
+      const auditTrail = new InMemoryAuditTrail();
+      const runStore = new InMemoryRunStore();
+      const runId = `integration-calc-${Date.now()}`;
+
+      const result = await runAgentLoop({
+        runId,
+        caseId: "integration-case-calc",
+        prompt:
+          "Use the calculator tool to add 21 and 21, then tell me the result. " +
+          "Do NOT call sendEmail or any tool that needs approval.",
+        model,
+        auditTrail,
+        runStore,
+      });
+
+      expect(result.status).toBe("completed");
+
+      // If the model used the tool (it should, given the instruction), the
+      // deterministic result must be recorded. Lenient on whether it called it.
+      const calc = (await auditTrail.listByRun(runId)).find(
+        (e) => e.kind === "tool_result" && e.data.toolName === "calculator"
+      );
+      if (calc) {
+        expect(calc.data.output).toMatchObject({ result: 42 });
+      } else {
+        console.warn("Model answered without calling calculator — tool_result not exercised.");
+      }
+    },
+    60_000
+  );
+
+  it(
+    "records a tool_result for an approved sendEmail after resume",
+    async () => {
+      const auditTrail = new InMemoryAuditTrail();
+      const runStore = new InMemoryRunStore();
+      const runId = `integration-email-${Date.now()}`;
+
+      const result = await runAgentLoop({
+        runId,
+        caseId: "integration-case-email",
+        prompt:
+          "Use the sendEmail tool to send an email to ops@example.com with subject " +
+          "'Status' and body 'All clear'. This action requires approval — just call the tool.",
+        model,
+        auditTrail,
+        runStore,
+      });
+
+      if (result.status === "awaiting_approval") {
+        const approvalEntry = (await auditTrail.listByRun(runId)).find(
+          (e) => e.kind === "awaiting_approval"
+        );
+        expect(approvalEntry).toBeDefined();
+        const toolCallId = approvalEntry!.data.toolCallId as string;
+
+        const resumeResult = await resumeAgentLoop({
+          runId,
+          approval: { toolCallId, outcome: "approved" },
+          model,
+          auditTrail,
+          runStore,
+        });
+        expect(resumeResult.status).toBe("completed");
+
+        // Commit-4 end-to-end proof: the approved action's execution result is
+        // in the Audit Trail (was missing before the onToolCallFinish fix).
+        const email = (await auditTrail.listByRun(runId)).find(
+          (e) => e.kind === "tool_result" && e.data.toolName === "sendEmail"
+        );
+        expect(email).toBeDefined();
+        expect(email!.data.output).toMatchObject({ sent: true });
+      } else {
+        console.warn(
+          "Model did not call sendEmail — approval-result integration not exercised."
         );
         expect(["completed", "awaiting_approval"]).toContain(result.status);
       }

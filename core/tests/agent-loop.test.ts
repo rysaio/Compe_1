@@ -326,3 +326,272 @@ describe("Agent Loop — human-approval path", () => {
     expect(kinds).toContain("approval_denied");
   });
 });
+
+// ─── Audit records tool evidence ──────────────────────────────────────────────
+// Per CONTEXT.md, the Audit Trail is the durable record of "evidence gathered ...
+// actions executed". A step_finished entry names the tools but not the evidence;
+// these tests pin the contract that the trail also records each tool call's input
+// and result.
+
+describe("Agent Loop — audit records tool evidence", () => {
+  let auditTrail: InMemoryAuditTrail;
+  let runStore: InMemoryRunStore;
+
+  beforeEach(() => {
+    auditTrail = new InMemoryAuditTrail();
+    runStore = new InMemoryRunStore();
+  });
+
+  it("records a tool_called entry naming the evidence tool the model invoked", async () => {
+    const model = createFakeModel([
+      {
+        toolCalls: [
+          { toolCallId: "tc-ev-1", toolName: "lookupAsset", args: { hostname: "host-1" } },
+        ],
+        finishReason: "tool-calls",
+      },
+      { text: "Asset is online.", finishReason: "stop" },
+    ]);
+
+    const runId = makeRunId();
+    await runAgentLoop({
+      runId,
+      caseId: CASE_ID,
+      prompt: "Check host-1",
+      model,
+      auditTrail,
+      runStore,
+    });
+
+    const called = (await auditTrail.listByRun(runId)).filter(
+      (e) => e.kind === "tool_called"
+    );
+    expect(called.length).toBeGreaterThanOrEqual(1);
+    expect(called[0].data.toolName).toBe("lookupAsset");
+  });
+
+  it("records a tool_result entry carrying the evidence the tool returned", async () => {
+    const model = createFakeModel([
+      {
+        toolCalls: [
+          { toolCallId: "tc-ev-2", toolName: "lookupAsset", args: { hostname: "host-2" } },
+        ],
+        finishReason: "tool-calls",
+      },
+      { text: "Done.", finishReason: "stop" },
+    ]);
+
+    const runId = makeRunId();
+    await runAgentLoop({
+      runId,
+      caseId: CASE_ID,
+      prompt: "Check host-2",
+      model,
+      auditTrail,
+      runStore,
+    });
+
+    const results = (await auditTrail.listByRun(runId)).filter(
+      (e) => e.kind === "tool_result"
+    );
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results[0].data.toolName).toBe("lookupAsset");
+    // The actual evidence the stub returned must be in the trail, not just the name.
+    expect(results[0].data.output).toMatchObject({ status: "online" });
+  });
+});
+
+// ─── Classic generic tools ─────────────────────────────────────────────────────
+// The classic tools (calculator, getWeather) exercise the general agent layer
+// (ADR 0004) as flat peers of the security stubs. These pin their deterministic
+// behaviour and that their results reach the Audit Trail like any other tool.
+
+describe("Agent Loop — classic generic tools", () => {
+  let auditTrail: InMemoryAuditTrail;
+  let runStore: InMemoryRunStore;
+
+  beforeEach(() => {
+    auditTrail = new InMemoryAuditTrail();
+    runStore = new InMemoryRunStore();
+  });
+
+  it("runs calculator automatically and records the computed result", async () => {
+    const model = createFakeModel([
+      {
+        toolCalls: [
+          { toolCallId: "tc-calc-1", toolName: "calculator", args: { operation: "add", a: 2, b: 3 } },
+        ],
+        finishReason: "tool-calls",
+      },
+      { text: "2 + 3 = 5.", finishReason: "stop" },
+    ]);
+
+    const runId = makeRunId();
+    const result = await runAgentLoop({
+      runId,
+      caseId: CASE_ID,
+      prompt: "What is 2 + 3?",
+      model,
+      auditTrail,
+      runStore,
+    });
+
+    // calculator omits needsApproval → automatic, run completes without pausing.
+    expect(result.status).toBe("completed");
+
+    const results = (await auditTrail.listByRun(runId)).filter(
+      (e) => e.kind === "tool_result"
+    );
+    const calc = results.find((e) => e.data.toolName === "calculator");
+    expect(calc).toBeDefined();
+    expect(calc!.data.output).toMatchObject({ result: 5 });
+  });
+
+  it("records the division-by-zero guard result rather than throwing", async () => {
+    const model = createFakeModel([
+      {
+        toolCalls: [
+          { toolCallId: "tc-calc-2", toolName: "calculator", args: { operation: "divide", a: 1, b: 0 } },
+        ],
+        finishReason: "tool-calls",
+      },
+      { text: "Cannot divide by zero.", finishReason: "stop" },
+    ]);
+
+    const runId = makeRunId();
+    const result = await runAgentLoop({
+      runId,
+      caseId: CASE_ID,
+      prompt: "Divide 1 by 0",
+      model,
+      auditTrail,
+      runStore,
+    });
+
+    expect(result.status).toBe("completed");
+
+    const results = (await auditTrail.listByRun(runId)).filter(
+      (e) => e.kind === "tool_result"
+    );
+    const calc = results.find((e) => e.data.toolName === "calculator");
+    expect(calc).toBeDefined();
+    expect(calc!.data.output).toMatchObject({ result: null, error: "division by zero" });
+  });
+
+  it("runs getWeather automatically and records its stub reading", async () => {
+    const model = createFakeModel([
+      {
+        toolCalls: [
+          { toolCallId: "tc-weather-1", toolName: "getWeather", args: { city: "Berlin" } },
+        ],
+        finishReason: "tool-calls",
+      },
+      { text: "It is clear in Berlin.", finishReason: "stop" },
+    ]);
+
+    const runId = makeRunId();
+    await runAgentLoop({
+      runId,
+      caseId: CASE_ID,
+      prompt: "Weather in Berlin?",
+      model,
+      auditTrail,
+      runStore,
+    });
+
+    const results = (await auditTrail.listByRun(runId)).filter(
+      (e) => e.kind === "tool_result"
+    );
+    const weather = results.find((e) => e.data.toolName === "getWeather");
+    expect(weather).toBeDefined();
+    expect(weather!.data.output).toMatchObject({ city: "Berlin", conditions: "clear" });
+  });
+});
+
+// ─── Audit records approved action results ──────────────────────────────────────
+// CONTEXT.md defines the Audit Trail as the record of "actions executed". When an
+// approval tool is approved and resumed, the SDK executes it in the continuation
+// BEFORE the step loop, so its result never reaches onStepFinish.toolResults. The
+// trail must still record that execution's tool_result.
+
+describe("Agent Loop — audit records approved action results", () => {
+  let auditTrail: InMemoryAuditTrail;
+  let runStore: InMemoryRunStore;
+
+  beforeEach(() => {
+    auditTrail = new InMemoryAuditTrail();
+    runStore = new InMemoryRunStore();
+  });
+
+  it("records a tool_result for an approved action tool after resume", async () => {
+    const model = createFakeModel([
+      {
+        toolCalls: [
+          {
+            toolCallId: "tc-email-1",
+            toolName: "sendEmail",
+            args: { to: "ops@example.com", subject: "Alert", body: "Investigating." },
+          },
+        ],
+        finishReason: "tool-calls",
+      },
+      { text: "Email sent.", finishReason: "stop" },
+    ]);
+
+    const runId = makeRunId();
+    const pause = await runAgentLoop({
+      runId,
+      caseId: CASE_ID,
+      prompt: "Email ops@example.com about the alert",
+      model,
+      auditTrail,
+      runStore,
+    });
+    expect(pause.status).toBe("awaiting_approval");
+
+    const { resumeAgentLoop } = await import("../src/agent-loop.js");
+    await resumeAgentLoop({
+      runId,
+      approval: { toolCallId: "tc-email-1", outcome: "approved" },
+      model,
+      auditTrail,
+      runStore,
+    });
+
+    const results = (await auditTrail.listByRun(runId)).filter(
+      (e) => e.kind === "tool_result"
+    );
+    const email = results.find((e) => e.data.toolName === "sendEmail");
+    expect(email).toBeDefined();
+    expect(email!.data.output).toMatchObject({ sent: true, to: "ops@example.com" });
+  });
+
+  it("records exactly one tool_result per executed tool (no duplicates)", async () => {
+    const model = createFakeModel([
+      {
+        toolCalls: [
+          { toolCallId: "tc-look-1", toolName: "lookupAsset", args: { hostname: "host-9" } },
+        ],
+        finishReason: "tool-calls",
+      },
+      { text: "Asset checked.", finishReason: "stop" },
+    ]);
+
+    const runId = makeRunId();
+    await runAgentLoop({
+      runId,
+      caseId: CASE_ID,
+      prompt: "Check host-9",
+      model,
+      auditTrail,
+      runStore,
+    });
+
+    const results = (await auditTrail.listByRun(runId)).filter(
+      (e) =>
+        e.kind === "tool_result" &&
+        (e.data as { toolCallId?: string }).toolCallId === "tc-look-1"
+    );
+    expect(results).toHaveLength(1);
+  });
+});

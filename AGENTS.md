@@ -2,11 +2,8 @@
 
 This file provides guidance to Codex/Claude Code when working with code in this repository.
 
-This is a start-stage repo, doing the first code.
-
 This project builds a security operations agent harness product.
-The product is API-first: the Harness Service API is the product surface, and any
-operator UI is a consumer of it.
+The product is API-first: the Harness Service API is the product surface, and any operator UI is a consumer of it.
 
 You (Claude/Codex) should defer to the relevant docs in exact missions.
 
@@ -22,21 +19,7 @@ durable upward into the right layer below.
 | 3 | `docs/designs/` | design substance — what the system is and how it's built; scope, assumptions, acceptance criteria | 
 | 4 | `docs/research/` | user-managed exploration — expansion directions, summaries, open questions, ideas | 
 | 5 | `docs/agents/domain.md` | how agents align design expressions in this repo | 
-
-## Edit rules
-
-- **Editing in an area** → read the doc that owns the subject first. Ownership is
-  by subject, not a single ranked ladder:
-  - term meaning → `CONTEXT.md`
-  - design substance (what the system is / how it's built) → `docs/designs/`
-  - whether something is decided and what was decided → `docs/adr/` (thin records
-    that point into `docs/designs/` for the substance)
-  - exploration / expansion material → `docs/research/` (user-managed)
-
-  On a conflict, the layer that owns *that subject* wins. An ADR records a
-  decision; it does not carry the design — follow its link into `docs/designs/`.
-- **About to edit any file** → run `git status` / `git diff` first. Other agents
-  (Codex, Claude) may share this tree. Avoid overwriting any existing files by creating a same-name file, use another name or edit the existing file instead. *Must check before write*.
+ 
 
 ## Agent skills
 
@@ -45,13 +28,48 @@ durable upward into the right layer below.
 This repo uses a single-context domain docs layout. See `docs/agents/domain.md`.
 
 ## Conventions
-
-- Checkpoint-commit a decision once it hardens instead of piling up uncommitted 
-  reasoning.
-- your commit must with `--author="yourname <youremail>"`
+- Don't overuse git operations; use them only when necessary, and only on files within your editing scope.
+- Checkpoint-commit a decision once it hardens instead of piling up uncommitted reasoning.
+- your commit with `--author="yourname <youremail>"`
   example:"claude <noreply@anthropic.com>".
-  No human co-authored.  
-- Parallel work → separate branch/worktree
 - Commit style matches history: `docs(...):` / `docs:`. 
   Prefer editing a doc over adding one; new ADRs are `000N-*.md`, specs are `YYYY-MM-DD-*.md`.
 - Speak to user in Chinese.
+
+## Claude guidelines
+
+Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+
+**Tradeoff:** These guidelines bias toward caution over speed. 
+
+### 1. plan Before Coding
+
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+- Transform tasks into verifiable goals, , state a brief multi-step tasks plan.
+- Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+- If multiple interpretations or a simpler approach exist, present them - don't pick silently.
+- Push back exact planning when warranted. If you finds wrong during implement, go back planning.
+
+### 2. Simplicity First
+
+- judge and simplify your overcomplicated code.
+  if 200 lines equals 50 lines:
+    use: 50 lines
+    
+### 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+- Never "improve" adjacent code, comments, formatting or refactoring things  if it's not a refactor task.
+- Don't create new code architechture, first find out if the problem be solved based on existing structure.
+- Don't delete unrelated dead code , mention it.
+- Avoid overwriting any existing files by creating a same-name file inforce, you should use another name or edit an existing file after checking instead.
+
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request/task goal.

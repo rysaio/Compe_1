@@ -5,7 +5,7 @@
  *   - Ports (interfaces): AuditTrail, RunStore
  *   - Adapters: InMemoryAuditTrail, InMemoryRunStore
  *   - Agent Loop: runAgentLoop, resumeAgentLoop
- *   - Tool stubs: allTools, evidenceTools, actionTools
+ *   - Tools: allTools (flat peer set) + individual tool exports
  *   - Types: RunAgentLoopOptions, RunResult, ResumeAgentLoopOptions, ApprovalDecision
  */
 
@@ -39,8 +39,11 @@ export type {
 // ─── Tools ───────────────────────────────────────────────────────────────────
 export {
   allTools,
-  evidenceTools,
-  actionTools,
+  // classic generic tools
+  calculatorTool,
+  getWeatherTool,
+  sendEmailTool,
+  // security-operations stubs
   lookupAssetTool,
   lookupIpTool,
   blockIpTool,

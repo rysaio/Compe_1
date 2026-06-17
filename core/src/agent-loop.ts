@@ -21,7 +21,7 @@
  * Terms follow CONTEXT.md exactly:
  *   Agent Loop, Agent Run, Audit Trail, Evidence Tools, Action Executors, Policy Gate.
  */
-import { generateText, isLoopFinished, stepCountIs, type CoreMessage } from "ai";
+import { generateText, isLoopFinished, stepCountIs, type ModelMessage } from "ai";
 import type { AuditTrail } from "./audit-trail.js";
 import type { RunStore, RunStatus } from "./run-store.js";
 import { allTools } from "./tools.js";
@@ -67,10 +67,10 @@ export interface ResumeAgentLoopOptions {
 
 // ─── System prompt ────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a Security Operations (SOC) agent running inside the Security Operations Harness.
-Your job is to investigate the given case using available Evidence Tools, then—if needed—recommend
-an action via Action Tools (which require human approval through the Policy Gate).
-Be precise and evidence-driven. Record your reasoning.`;
+const SYSTEM_PROMPT = `You are a precise, helpful agent running inside a bounded agent loop.
+Use the available tools when they help answer the request. Some tools require human
+approval before they run; call them when appropriate and the harness will pause for
+approval. Be concise and explain your reasoning.`;
 
 // ─── Pending-approval detection ───────────────────────────────────────────────
 
@@ -132,10 +132,95 @@ function findPendingApproval(
 // ─── Step finish callback type ────────────────────────────────────────────────
 
 interface StepInfo {
+  stepNumber?: number;
   finishReason: string;
-  toolCalls?: Array<{ toolCallId: string; toolName: string }>;
+  toolCalls?: Array<{ toolCallId: string; toolName: string; input?: unknown }>;
   text?: string;
   usage?: unknown;
+}
+
+/**
+ * Minimal shape of the AI SDK v6 `OnToolCallFinishEvent` we record from. The SDK
+ * fires `experimental_onToolCallFinish` after EVERY tool execution — automatic
+ * tools run inside the step loop AND approved tools run in the resume
+ * continuation — so it, not onStepFinish, is the single source of tool_result.
+ * Discriminated on `success`: a failed execution carries `error`, not `output`.
+ */
+interface ToolCallFinishEvent {
+  stepNumber?: number;
+  toolCall: { toolCallId: string; toolName: string; input?: unknown };
+  success: boolean;
+  output?: unknown;
+  error?: unknown;
+}
+
+/** Default step cap for one generateText loop (initial run and resume alike). */
+const DEFAULT_MAX_STEPS = 20;
+
+/**
+ * Writes the Audit Trail records for one completed step: a step_finished
+ * summary plus a tool_called entry for every tool the model invoked — the
+ * evidence gathered and actions requested (CONTEXT.md: Audit Trail), not just
+ * step boundaries. Tool RESULTS are recorded separately by recordToolResult
+ * (see below): approved action tools execute in the resume continuation, which
+ * never reaches onStepFinish, so tool_result cannot be sourced from here.
+ * `label` distinguishes initial-run steps from resume steps.
+ */
+async function recordStep(
+  auditTrail: AuditTrail,
+  runId: string,
+  step: StepInfo,
+  label: string | number
+): Promise<void> {
+  await auditTrail.append({
+    runId,
+    kind: "step_finished",
+    data: {
+      stepIndex: label,
+      finishReason: step.finishReason,
+      toolCalls: step.toolCalls?.map((tc) => ({
+        id: tc.toolCallId,
+        name: tc.toolName,
+      })),
+      text: step.text,
+    },
+  });
+  for (const tc of step.toolCalls ?? []) {
+    await auditTrail.append({
+      runId,
+      kind: "tool_called",
+      data: { toolCallId: tc.toolCallId, toolName: tc.toolName, input: tc.input },
+    });
+  }
+}
+
+/**
+ * Writes one tool_result entry per completed tool EXECUTION. Fired by
+ * experimental_onToolCallFinish, so it captures automatic tools and approved
+ * action tools alike — including approvals executed in the resume continuation
+ * that bypass onStepFinish (the audit-trail gap this fixes). A failed execution
+ * records its `error` instead of `output`.
+ */
+async function recordToolResult(
+  auditTrail: AuditTrail,
+  runId: string,
+  event: ToolCallFinishEvent
+): Promise<void> {
+  await auditTrail.append({
+    runId,
+    kind: "tool_result",
+    data: event.success
+      ? {
+          toolCallId: event.toolCall.toolCallId,
+          toolName: event.toolCall.toolName,
+          output: event.output,
+        }
+      : {
+          toolCallId: event.toolCall.toolCallId,
+          toolName: event.toolCall.toolName,
+          error: String(event.error),
+        },
+  });
 }
 
 // ─── Main agent loop implementation ──────────────────────────────────────────
@@ -151,9 +236,8 @@ async function runWithApprovalCheck(opts: RunAgentLoopOptions): Promise<{
   responseMessages: PersistedMessage[];
   pendingApproval?: PendingApproval;
 }> {
-  const { prompt, model, auditTrail, runId, maxSteps = 20 } = opts;
+  const { prompt, model, auditTrail, runId, maxSteps = DEFAULT_MAX_STEPS } = opts;
 
-  let stepIndex = 0;
   const result = await generateText({
     model,
     tools: allTools,
@@ -162,22 +246,10 @@ async function runWithApprovalCheck(opts: RunAgentLoopOptions): Promise<{
     // isLoopFinished() lets the SDK multi-step until the model says "stop".
     // stepCountIs(maxSteps) is the safety cap.
     stopWhen: [isLoopFinished(), stepCountIs(maxSteps)],
-    onStepFinish: async (step: StepInfo) => {
-      await auditTrail.append({
-        runId,
-        kind: "step_finished",
-        data: {
-          stepIndex,
-          finishReason: step.finishReason,
-          toolCalls: step.toolCalls?.map((tc) => ({
-            id: tc.toolCallId,
-            name: tc.toolName,
-          })),
-          text: step.text,
-        },
-      });
-      stepIndex++;
-    },
+    onStepFinish: (step: StepInfo) =>
+      recordStep(auditTrail, runId, step, step.stepNumber ?? 0),
+    experimental_onToolCallFinish: (event: ToolCallFinishEvent) =>
+      recordToolResult(auditTrail, runId, event),
   });
 
   // Messages are in result.response.messages (SDK v6 API)
@@ -343,30 +415,21 @@ export async function resumeAgentLoop(
     ],
   };
 
-  const resumeMessages: CoreMessage[] = [
-    ...(persistedMessages as CoreMessage[]),
-    approvalResponseMsg as unknown as CoreMessage,
+  const resumeMessages: ModelMessage[] = [
+    ...(persistedMessages as ModelMessage[]),
+    approvalResponseMsg as unknown as ModelMessage,
   ];
 
-  let stepIndex = 0;
   const result = await generateText({
     model,
     tools: allTools,
     system: SYSTEM_PROMPT,
     messages: resumeMessages,
-    stopWhen: [isLoopFinished(), stepCountIs(10)],
-    onStepFinish: async (step: StepInfo) => {
-      await auditTrail.append({
-        runId,
-        kind: "step_finished",
-        data: {
-          stepIndex: `resume-${stepIndex}`,
-          finishReason: step.finishReason,
-          text: step.text,
-        },
-      });
-      stepIndex++;
-    },
+    stopWhen: [isLoopFinished(), stepCountIs(DEFAULT_MAX_STEPS)],
+    onStepFinish: (step: StepInfo) =>
+      recordStep(auditTrail, runId, step, `resume-${step.stepNumber ?? 0}`),
+    experimental_onToolCallFinish: (event: ToolCallFinishEvent) =>
+      recordToolResult(auditTrail, runId, event),
   });
 
   const finalMessages =
