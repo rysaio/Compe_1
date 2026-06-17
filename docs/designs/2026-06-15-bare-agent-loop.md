@@ -1,6 +1,13 @@
 # Bare Agent Loop — 实现规格
 
 > 2026-06-15 · 基于 ADR 0001 + ADR 0004 · 核心架构见 `2026-06-07-v1-technology-selection.md`
+>
+> **Status: 已实现** — bare loop 在 `core/` 落地(两条审批路径 + Audit Trail + RunStore +
+> 经典/SOC tool stubs),单元测试与真实 provider 集成测试均通过；公共面见 `core/README.md`。
+> **下一增量**(本规格「与核心设计的张力」节 + ADR 0001/0004 的 Consequences 已指明,非新决策):
+> **Policy Gate 阶段** —— 把 Policy Gate 从骨架做成确定性审批,补上本阶段有意省略的 Postgres
+> 持久化与 Case Work Item / Agent Job 包裹层,朝 ADR 0002 的 Linux 服务器可疑 shell 垂直切片推进。
+> 延期组件的完整清单见 `core/README.md` 的「Scope and deferred items」。
 
 ## 技术栈
 

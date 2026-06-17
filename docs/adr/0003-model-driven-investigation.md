@@ -1,5 +1,8 @@
 # Agent runs drive their own investigation; determinism lives in gates, tools, and protocol
 
+Status: Accepted
+Date: 2026-06-13
+
 Inside an Agent Run, the model decides what evidence to gather, in what order,
 and when it has enough — a bounded, case-agnostic, open-ended investigation
 search, not a code-fixed step sequence. The harness's determinism does not sit

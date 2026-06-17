@@ -1,5 +1,8 @@
 # V1 first vertical slice: suspicious shell execution on server hosts
 
+Status: Accepted
+Date: 2026-06-13
+
 The harness targets three asset dimensions — server hosts, endpoint
 workstations, and internal-network lateral movement. For the first vertical
 slice we deliberately pick **one**: suspicious shell execution on Linux server
