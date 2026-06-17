@@ -50,7 +50,7 @@ const provider = createOpenAICompatible({
   baseURL: process.env.OPENAI_BASE_URL!,
   apiKey: process.env.OPENAI_API_KEY!,
 });
-const model = provider(process.env.OPENAI_MODEL ?? "gpt-4o-mini");
+const model = provider(process.env.OPENAI_MODEL ?? "qwen3.6-plus");
 
 const auditTrail = new InMemoryAuditTrail();
 const runStore  = new InMemoryRunStore();
@@ -98,7 +98,7 @@ exercise the general agent layer; the security stubs are peers alongside them.
 |---|---|---|
 | `OPENAI_API_KEY` | Yes | — |
 | `OPENAI_BASE_URL` | Yes | — |
-| `OPENAI_MODEL` | No | `gpt-4o-mini` — set to your provider's model id when `OPENAI_BASE_URL` is not OpenAI (e.g. a Qwen id for DashScope) |
+| `OPENAI_MODEL` | No | `qwen3.6-plus` (the DashScope/Qwen model this repo targets) |
 
 ## Testing
 

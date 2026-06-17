@@ -17,7 +17,7 @@ import { runAgentLoop, resumeAgentLoop } from "../src/agent-loop.js";
 
 const API_KEY = process.env.OPENAI_API_KEY;
 const BASE_URL = process.env.OPENAI_BASE_URL;
-const MODEL_ID = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+const MODEL_ID = process.env.OPENAI_MODEL ?? "qwen3.6-plus";
 
 const SKIP = !API_KEY || !BASE_URL;
 
