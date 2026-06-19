@@ -150,6 +150,30 @@ recommendation may become a real action, needs human confirmation, or must be
 denied.
 _Avoid_: Model-only permission check, implicit approval
 
+**Precondition Marker**:
+A structured, queryable record that a named precondition holds for an operational
+case — typically "interface X was called successfully" (called:<interfaceId>),
+but also condition markers such as approved:<action> or evidence_complete. It is
+the current-state source of truth that interface precondition checks read,
+distinct from the Audit Trail: the Audit Trail records the transition as history;
+the marker answers "does this hold now" without scanning that history. Markers are
+durable and survive across Agent Runs.
+_Avoid_: Hidden model memory, in-process flag, audit-log scan, transcript state
+
+**Precondition Table**:
+The declarative, config-as-data mapping from each interface to its precondition
+rule — a boolean over Precondition Markers (allOf, anyOf, or atLeast k-of-n), not
+a flat AND. A single generic evaluator reads the table and the marker set to allow
+an interface call or block it; the check is not hand-coded into each interface, so
+changing a dependency is a config change, not a code change. Like the Evidence
+Protocol per-case-type table it is data, not code, but it is hard (the evaluator
+enforces it; an unmet rule means the call does not execute), whereas Evidence
+Protocol is soft (the model reads it as a maturity bar). It encodes real
+dependencies and safety conditions only — never an investigation order among
+independent Evidence Tools, which would rebuild the fixed playbook ADR 0003
+rejected.
+_Avoid_: Per-interface hardcoded check, fixed playbook, investigation-order script, DAG baked into core
+
 **Action Executors**:
 Controlled connectors that perform real-world security operations actions after
 the policy gate allows them, such as blocking an IP, triggering a scan, creating
