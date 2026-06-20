@@ -11,6 +11,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { InMemoryAuditTrail } from "../src/in-memory-audit-trail.js";
 import { InMemoryRunStore } from "../src/in-memory-run-store.js";
+import { InMemoryPreconditionMarkerStore } from "../src/precondition-marker-store.js";
 import { runAgentLoop, resumeAgentLoop } from "../src/agent-loop.js";
 
 // ─── Guard: skip if no credentials ───────────────────────────────────────────
@@ -51,6 +52,7 @@ maybeDescribe("Integration — automatic path (real provider)", () => {
     async () => {
       const auditTrail = new InMemoryAuditTrail();
       const runStore = new InMemoryRunStore();
+      const markerStore = new InMemoryPreconditionMarkerStore();
       const runId = `integration-auto-${Date.now()}`;
 
       const result = await runAgentLoop({
@@ -63,6 +65,7 @@ maybeDescribe("Integration — automatic path (real provider)", () => {
         model,
         auditTrail,
         runStore,
+        markerStore,
       });
 
       // Run should complete (not pause for approval since no action tool)
@@ -93,6 +96,7 @@ maybeDescribe("Integration — human-approval path (real provider)", () => {
     async () => {
       const auditTrail = new InMemoryAuditTrail();
       const runStore = new InMemoryRunStore();
+      const markerStore = new InMemoryPreconditionMarkerStore();
       const runId = `integration-approval-${Date.now()}`;
 
       // Strongly instruct the model to call blockIp
@@ -106,6 +110,7 @@ maybeDescribe("Integration — human-approval path (real provider)", () => {
         model,
         auditTrail,
         runStore,
+        markerStore,
       });
 
       if (result.status === "awaiting_approval") {
@@ -130,6 +135,7 @@ maybeDescribe("Integration — human-approval path (real provider)", () => {
           model,
           auditTrail,
           runStore,
+          markerStore,
         });
 
         expect(resumeResult.status).toBe("completed");
@@ -162,6 +168,7 @@ maybeDescribe("Integration — classic tools (real provider)", () => {
     async () => {
       const auditTrail = new InMemoryAuditTrail();
       const runStore = new InMemoryRunStore();
+      const markerStore = new InMemoryPreconditionMarkerStore();
       const runId = `integration-calc-${Date.now()}`;
 
       const result = await runAgentLoop({
@@ -173,6 +180,7 @@ maybeDescribe("Integration — classic tools (real provider)", () => {
         model,
         auditTrail,
         runStore,
+        markerStore,
       });
 
       expect(result.status).toBe("completed");
@@ -196,6 +204,7 @@ maybeDescribe("Integration — classic tools (real provider)", () => {
     async () => {
       const auditTrail = new InMemoryAuditTrail();
       const runStore = new InMemoryRunStore();
+      const markerStore = new InMemoryPreconditionMarkerStore();
       const runId = `integration-email-${Date.now()}`;
 
       const result = await runAgentLoop({
@@ -207,6 +216,7 @@ maybeDescribe("Integration — classic tools (real provider)", () => {
         model,
         auditTrail,
         runStore,
+        markerStore,
       });
 
       if (result.status === "awaiting_approval") {
@@ -222,6 +232,7 @@ maybeDescribe("Integration — classic tools (real provider)", () => {
           model,
           auditTrail,
           runStore,
+          markerStore,
         });
         expect(resumeResult.status).toBe("completed");
 

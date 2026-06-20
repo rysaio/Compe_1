@@ -35,13 +35,14 @@ runAgentLoop()
 |---|---|---|
 | `AuditTrail` | `InMemoryAuditTrail` | Append-only run event log |
 | `RunStore` | `InMemoryRunStore` | Run state (status + messages) |
+| `PreconditionMarkerStore` | `InMemoryPreconditionMarkerStore` | Current precondition markers scoped to a case |
 
 ## Quick start
 
 ```ts
 import {
   runAgentLoop, resumeAgentLoop,
-  InMemoryAuditTrail, InMemoryRunStore,
+  InMemoryAuditTrail, InMemoryRunStore, InMemoryPreconditionMarkerStore,
 } from "@harness/core";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
@@ -54,13 +55,14 @@ const model = provider(process.env.OPENAI_MODEL ?? "qwen3.6-plus");
 
 const auditTrail = new InMemoryAuditTrail();
 const runStore  = new InMemoryRunStore();
+const markerStore = new InMemoryPreconditionMarkerStore();
 
 // Start a run
 const result = await runAgentLoop({
   runId: "run-001",
   caseId: "case-001",
   prompt: "Investigate suspicious traffic from 10.0.0.1",
-  model, auditTrail, runStore,
+  model, auditTrail, runStore, markerStore,
 });
 
 if (result.status === "awaiting_approval") {
@@ -72,7 +74,7 @@ if (result.status === "awaiting_approval") {
   await resumeAgentLoop({
     runId: "run-001",
     approval: { toolCallId: approvalEntry.data.toolCallId, outcome: "approved" },
-    model, auditTrail, runStore,
+    model, auditTrail, runStore, markerStore,
   });
 }
 ```

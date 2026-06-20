@@ -14,6 +14,7 @@ export type AuditEntryKind =
   | "step_finished"
   | "tool_called"
   | "tool_result"
+  | "precondition_unmet"
   | "awaiting_approval"
   | "approval_granted"
   | "approval_denied"

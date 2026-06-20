@@ -24,7 +24,10 @@
 import { generateText, isLoopFinished, stepCountIs, type ModelMessage } from "ai";
 import type { AuditTrail } from "./audit-trail.js";
 import type { RunStore, RunStatus } from "./run-store.js";
-import { allTools } from "./tools.js";
+import type { PreconditionTable } from "./precondition.js";
+import { isPreconditionUnmet } from "./precondition.js";
+import type { PreconditionMarkerStore } from "./precondition-marker-store.js";
+import { allTools, wrapAllTools, DEFAULT_PRECONDITION_TABLE } from "./tools.js";
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -43,6 +46,10 @@ export interface RunAgentLoopOptions {
   model: LanguageModel;
   auditTrail: AuditTrail;
   runStore: RunStore;
+  /** Precondition marker store (scoped to case, survives across runs). */
+  markerStore: PreconditionMarkerStore;
+  /** Precondition table (config-as-data). Defaults to DEFAULT_PRECONDITION_TABLE. */
+  preconditionTable?: PreconditionTable;
   /** Max steps before the loop self-terminates (default 20). */
   maxSteps?: number;
 }
@@ -63,6 +70,10 @@ export interface ResumeAgentLoopOptions {
   model: LanguageModel;
   auditTrail: AuditTrail;
   runStore: RunStore;
+  /** Precondition marker store (scoped to case, survives across runs). */
+  markerStore: PreconditionMarkerStore;
+  /** Precondition table (config-as-data). Defaults to DEFAULT_PRECONDITION_TABLE. */
+  preconditionTable?: PreconditionTable;
 }
 
 // ─── System prompt ────────────────────────────────────────────────────────────
@@ -198,14 +209,32 @@ async function recordStep(
  * Writes one tool_result entry per completed tool EXECUTION. Fired by
  * experimental_onToolCallFinish, so it captures automatic tools and approved
  * action tools alike — including approvals executed in the resume continuation
- * that bypass onStepFinish (the audit-trail gap this fixes). A failed execution
- * records its `error` instead of `output`.
+ * that bypass onStepFinish (the audit-trail gap this fixes).
+ *
+ * Detects precondition_unmet outputs and records them with the
+ * "precondition_unmet" kind (ADR 0005: the Audit Trail mirrors marker
+ * transitions; a blocked call is a transition worth recording).
+ *
+ * A failed execution records its `error` instead of `output`.
  */
 async function recordToolResult(
   auditTrail: AuditTrail,
   runId: string,
   event: ToolCallFinishEvent
 ): Promise<void> {
+  if (event.success && isPreconditionUnmet(event.output)) {
+    await auditTrail.append({
+      runId,
+      kind: "precondition_unmet",
+      data: {
+        toolCallId: event.toolCall.toolCallId,
+        toolName: event.toolCall.toolName,
+        guidance: event.output,
+      },
+    });
+    return;
+  }
+
   await auditTrail.append({
     runId,
     kind: "tool_result",
@@ -229,6 +258,8 @@ async function recordToolResult(
  * Runs ONE generateText call that includes BOTH Evidence and Action tools.
  * If the model calls an Action Tool (needsApproval: true), the SDK stops
  * the loop and records a tool-approval-request in the messages.
+ *
+ * Tools are wrapped with precondition checks (ADR 0005) before the call.
  */
 async function runWithApprovalCheck(opts: RunAgentLoopOptions): Promise<{
   finishReason: string;
@@ -236,11 +267,23 @@ async function runWithApprovalCheck(opts: RunAgentLoopOptions): Promise<{
   responseMessages: PersistedMessage[];
   pendingApproval?: PendingApproval;
 }> {
-  const { prompt, model, auditTrail, runId, maxSteps = DEFAULT_MAX_STEPS } = opts;
+  const {
+    prompt,
+    model,
+    auditTrail,
+    runId,
+    caseId,
+    markerStore,
+    preconditionTable = DEFAULT_PRECONDITION_TABLE,
+    maxSteps = DEFAULT_MAX_STEPS,
+  } = opts;
+
+  // Wrap tools with precondition checks scoped to this case
+  const tools = wrapAllTools(allTools, preconditionTable, markerStore, caseId);
 
   const result = await generateText({
     model,
-    tools: allTools,
+    tools,
     system: SYSTEM_PROMPT,
     prompt,
     // isLoopFinished() lets the SDK multi-step until the model says "stop".
@@ -351,19 +394,46 @@ export async function runAgentLoop(
  * to the tool-approval-request. The SDK will then execute the approved tool
  * and resume the model conversation.
  *
+ * ADR 0005: On approval, writes the `approved:<toolName>` precondition marker
+ * so the Precondition Table check inside the execute wrapper passes. The
+ * Policy Gate is a row in the Precondition Table — this is the write side.
+ *
  * This is at the SDK messages layer — the Job layer (pg-boss) is deferred
  * per spec.
  */
 export async function resumeAgentLoop(
   opts: ResumeAgentLoopOptions
 ): Promise<RunResult> {
-  const { runId, approval, model, auditTrail, runStore } = opts;
+  const {
+    runId,
+    approval,
+    model,
+    auditTrail,
+    runStore,
+    markerStore,
+    preconditionTable = DEFAULT_PRECONDITION_TABLE,
+  } = opts;
 
   const run = await runStore.get(runId);
   if (!run) throw new Error(`AgentRun not found: ${runId}`);
   if (run.status !== "awaiting_approval") {
     throw new Error(
       `AgentRun ${runId} is not awaiting_approval (status: ${run.status})`
+    );
+  }
+
+  // Find the approvalId from persisted messages for the SDK response link.
+  const persistedMessages = run.messages as PersistedMessage[];
+  const pending = findPendingApproval(persistedMessages);
+
+  if (!pending) {
+    throw new Error(
+      `No pending tool-approval-request found in run ${runId} messages`
+    );
+  }
+  if (pending.toolCallId !== approval.toolCallId) {
+    throw new Error(
+      `Approval toolCallId mismatch for run ${runId}: expected ${pending.toolCallId}, got ${approval.toolCallId}`
     );
   }
 
@@ -390,15 +460,11 @@ export async function resumeAgentLoop(
     data: { toolCallId: approval.toolCallId },
   });
 
-  // Find the approvalId from persisted messages for the SDK response link
-  const persistedMessages = run.messages as PersistedMessage[];
-  const pending = findPendingApproval(persistedMessages);
-
-  if (!pending) {
-    throw new Error(
-      `No pending tool-approval-request found in run ${runId} messages`
-    );
-  }
+  // ADR 0005: Write the approved:<toolName> precondition marker.
+  // The execute wrapper checks this marker against the Precondition Table
+  // before allowing the real tool to execute. This is the Policy Gate
+  // unified under the precondition shape.
+  await markerStore.add(run.caseId, `approved:${pending.toolName}`);
 
   // Append tool-approval-response — SDK matches by approvalId
   // When the SDK processes this on the second generateText call, it will:
@@ -420,9 +486,12 @@ export async function resumeAgentLoop(
     approvalResponseMsg as unknown as ModelMessage,
   ];
 
+  // Wrap tools with precondition checks scoped to this case
+  const tools = wrapAllTools(allTools, preconditionTable, markerStore, run.caseId);
+
   const result = await generateText({
     model,
-    tools: allTools,
+    tools,
     system: SYSTEM_PROMPT,
     messages: resumeMessages,
     stopWhen: [isLoopFinished(), stepCountIs(DEFAULT_MAX_STEPS)],

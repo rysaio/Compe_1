@@ -3,7 +3,7 @@
 > 2026-06-19 · 决策见 `docs/adr/0005-precondition-gating-and-self-correction.md`
 > · 立场承袭 ADR 0003（确定性在边界、不在调查路径）/ ADR 0004（核心是通用 Agent Loop）
 >
-> **Status: 已对齐，待实现** —— 本规格定义"接口自校验前置 + 缺则不执行并返回结构化自我
+> **Status: 已实现** —— 本规格定义"接口自校验前置 + 缺则不执行并返回结构化自我
 > 修正指引"的机制实质。前置标识集的 Postgres 持久化随 `2026-06-15-bare-agent-loop.md`
 > 的 Postgres 层一并延期，先用内存适配器（同 `AuditTrail` / `RunStore`）。
 
