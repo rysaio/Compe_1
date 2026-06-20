@@ -14,9 +14,19 @@
  *
  * Uses inputSchema (Vercel AI SDK v6 name — NOT parameters).
  * Does NOT use dynamicTool() — v6 lacks needsApproval there (#11434).
+ *
+ * Precondition Gating (ADR 0005):
+ *   `wrapAllTools()` wraps every tool's execute with a precondition check
+ *   driven by the Precondition Table. Unmet preconditions return structured
+ *   self-correction guidance instead of executing. The Policy Gate is one row
+ *   in the table: an `approved:<toolName>` marker written when a human
+ *   approves an action.
  */
-import { tool } from "ai";
+import { tool, type Tool } from "ai";
 import { z } from "zod";
+import type { PreconditionTable } from "./precondition.js";
+import { evaluate, generateGuidance } from "./precondition.js";
+import type { PreconditionMarkerStore } from "./precondition-marker-store.js";
 
 // ─── Classic generic tools (domain-neutral) ──────────────────────────────────
 
@@ -141,3 +151,89 @@ export const allTools = {
 } as const;
 
 export type AllTools = typeof allTools;
+
+// ─── Precondition Table (config-as-data) ───────────────────────────────────────
+
+/**
+ * The default Precondition Table.
+ *
+ * Encodes real dependencies and safety conditions only (ADR 0003 / ADR 0005).
+ * Never encodes investigation order among independent Evidence Tools.
+ *
+ * Current entries:
+ *   - Action tools require an `approved:<toolName>` marker (Policy Gate).
+ *   - Evidence tools have no preconditions (called anytime).
+ *
+ * Adding/removing a precondition is a table edit — no interface code changes.
+ */
+export const DEFAULT_PRECONDITION_TABLE: PreconditionTable = {
+  blockIp: {
+    rule: { allOf: ["approved:blockIp"] },
+  },
+  sendEmail: {
+    rule: { allOf: ["approved:sendEmail"] },
+  },
+};
+
+// ─── Execute wrapper ───────────────────────────────────────────────────────────
+
+/**
+ * Wraps every tool's `execute` with a precondition check driven by the
+ * Precondition Table.
+ *
+ * Before the real `execute` runs:
+ *   1. Look up the interface's precondition rule in the table.
+ *   2. Evaluate the rule against the current marker set for the case.
+ *   3. Unmet → return structured PreconditionUnmetGuidance (do NOT execute).
+ *   4. Met   → execute; on success, write `called:<interfaceId>` marker.
+ *
+ * Tools without a table entry run with no precondition check (passthrough).
+ *
+ * One wrapper covers all tools — zero per-tool wiring (ADR 0005).
+ */
+export function wrapAllTools(
+  tools: Record<string, Tool>,
+  table: PreconditionTable,
+  markerStore: PreconditionMarkerStore,
+  caseId: string
+): Record<string, Tool> {
+  const wrapped: Record<string, Tool> = {};
+  for (const [name, toolDef] of Object.entries(tools)) {
+    wrapped[name] = wrapTool(name, toolDef, table, markerStore, caseId);
+  }
+  return wrapped;
+}
+
+function wrapTool(
+  interfaceId: string,
+  toolDef: Tool,
+  table: PreconditionTable,
+  markerStore: PreconditionMarkerStore,
+  caseId: string
+): Tool {
+  const entry = table[interfaceId];
+
+  return {
+    ...toolDef,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    execute: async (args: any, opts?: any) => {
+      // ── Precondition check ──
+      if (entry) {
+        const markers = await markerStore.list(caseId);
+        const result = evaluate(entry.rule, new Set(markers));
+        if (!result.ok) {
+          return generateGuidance(interfaceId, entry, result.missing);
+        }
+      }
+
+      // ── Execute real tool ──
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const output = await (toolDef.execute as any)(args, opts);
+
+      // ── Record success marker ──
+      await markerStore.add(caseId, `called:${interfaceId}`);
+
+      return output;
+    },
+  };
+}

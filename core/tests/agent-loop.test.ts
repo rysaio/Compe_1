@@ -9,7 +9,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { InMemoryAuditTrail } from "../src/in-memory-audit-trail.js";
 import { InMemoryRunStore } from "../src/in-memory-run-store.js";
+import { InMemoryPreconditionMarkerStore } from "../src/precondition-marker-store.js";
 import { runAgentLoop } from "../src/agent-loop.js";
+import { DEFAULT_PRECONDITION_TABLE } from "../src/tools.js";
 import { createFakeModel } from "./fake-model.js";
 
 const CASE_ID = "case-unit-001";
@@ -23,10 +25,12 @@ function makeRunId(): string {
 describe("Agent Loop — automatic path", () => {
   let auditTrail: InMemoryAuditTrail;
   let runStore: InMemoryRunStore;
+  let markerStore: InMemoryPreconditionMarkerStore;
 
   beforeEach(() => {
     auditTrail = new InMemoryAuditTrail();
     runStore = new InMemoryRunStore();
+    markerStore = new InMemoryPreconditionMarkerStore();
   });
 
   it("writes run_started and run_finished audit entries", async () => {
@@ -42,6 +46,7 @@ describe("Agent Loop — automatic path", () => {
       model,
       auditTrail,
       runStore,
+      markerStore,
     });
 
     const entries = await auditTrail.listByRun(runId);
@@ -70,6 +75,7 @@ describe("Agent Loop — automatic path", () => {
       model,
       auditTrail,
       runStore,
+      markerStore,
     });
 
     const entries = await auditTrail.listByRun(runId);
@@ -90,6 +96,7 @@ describe("Agent Loop — automatic path", () => {
       model,
       auditTrail,
       runStore,
+      markerStore,
     });
 
     const run = await runStore.get(runId);
@@ -109,6 +116,7 @@ describe("Agent Loop — automatic path", () => {
       model,
       auditTrail,
       runStore,
+      markerStore,
     });
 
     const entries = await auditTrail.listByRun(runId);
@@ -123,10 +131,12 @@ describe("Agent Loop — automatic path", () => {
 describe("Agent Loop — human-approval path", () => {
   let auditTrail: InMemoryAuditTrail;
   let runStore: InMemoryRunStore;
+  let markerStore: InMemoryPreconditionMarkerStore;
 
   beforeEach(() => {
     auditTrail = new InMemoryAuditTrail();
     runStore = new InMemoryRunStore();
+    markerStore = new InMemoryPreconditionMarkerStore();
   });
 
   it("pauses run when model requests an action tool (needsApproval=true)", async () => {
@@ -147,6 +157,7 @@ describe("Agent Loop — human-approval path", () => {
       model,
       auditTrail,
       runStore,
+      markerStore,
     });
 
     expect(result.status).toBe("awaiting_approval");
@@ -174,6 +185,7 @@ describe("Agent Loop — human-approval path", () => {
       model,
       auditTrail,
       runStore,
+      markerStore,
     });
 
     const entries = await auditTrail.listByRun(runId);
@@ -201,6 +213,7 @@ describe("Agent Loop — human-approval path", () => {
       model,
       auditTrail,
       runStore,
+      markerStore,
     });
 
     const run = await runStore.get(runId);
@@ -232,6 +245,7 @@ describe("Agent Loop — human-approval path", () => {
       model,
       auditTrail,
       runStore,
+      markerStore,
     });
     expect(pauseResult.status).toBe("awaiting_approval");
 
@@ -246,6 +260,7 @@ describe("Agent Loop — human-approval path", () => {
       model,
       auditTrail,
       runStore,
+      markerStore,
     });
 
     expect(resumeResult.status).toBe("completed");
@@ -273,6 +288,7 @@ describe("Agent Loop — human-approval path", () => {
       model,
       auditTrail,
       runStore,
+      markerStore,
     });
 
     const { resumeAgentLoop } = await import("../src/agent-loop.js");
@@ -282,6 +298,7 @@ describe("Agent Loop — human-approval path", () => {
       model,
       auditTrail,
       runStore,
+      markerStore,
     });
 
     const entries = await auditTrail.listByRun(runId);
@@ -308,6 +325,7 @@ describe("Agent Loop — human-approval path", () => {
       model,
       auditTrail,
       runStore,
+      markerStore,
     });
 
     const { resumeAgentLoop } = await import("../src/agent-loop.js");
@@ -317,6 +335,7 @@ describe("Agent Loop — human-approval path", () => {
       model,
       auditTrail,
       runStore,
+      markerStore,
     });
 
     expect(result.status).toBe("completed");
@@ -336,10 +355,12 @@ describe("Agent Loop — human-approval path", () => {
 describe("Agent Loop — audit records tool evidence", () => {
   let auditTrail: InMemoryAuditTrail;
   let runStore: InMemoryRunStore;
+  let markerStore: InMemoryPreconditionMarkerStore;
 
   beforeEach(() => {
     auditTrail = new InMemoryAuditTrail();
     runStore = new InMemoryRunStore();
+    markerStore = new InMemoryPreconditionMarkerStore();
   });
 
   it("records a tool_called entry naming the evidence tool the model invoked", async () => {
@@ -361,6 +382,7 @@ describe("Agent Loop — audit records tool evidence", () => {
       model,
       auditTrail,
       runStore,
+      markerStore,
     });
 
     const called = (await auditTrail.listByRun(runId)).filter(
@@ -389,6 +411,7 @@ describe("Agent Loop — audit records tool evidence", () => {
       model,
       auditTrail,
       runStore,
+      markerStore,
     });
 
     const results = (await auditTrail.listByRun(runId)).filter(
@@ -409,10 +432,12 @@ describe("Agent Loop — audit records tool evidence", () => {
 describe("Agent Loop — classic generic tools", () => {
   let auditTrail: InMemoryAuditTrail;
   let runStore: InMemoryRunStore;
+  let markerStore: InMemoryPreconditionMarkerStore;
 
   beforeEach(() => {
     auditTrail = new InMemoryAuditTrail();
     runStore = new InMemoryRunStore();
+    markerStore = new InMemoryPreconditionMarkerStore();
   });
 
   it("runs calculator automatically and records the computed result", async () => {
@@ -434,6 +459,7 @@ describe("Agent Loop — classic generic tools", () => {
       model,
       auditTrail,
       runStore,
+      markerStore,
     });
 
     // calculator omits needsApproval → automatic, run completes without pausing.
@@ -466,6 +492,7 @@ describe("Agent Loop — classic generic tools", () => {
       model,
       auditTrail,
       runStore,
+      markerStore,
     });
 
     expect(result.status).toBe("completed");
@@ -497,6 +524,7 @@ describe("Agent Loop — classic generic tools", () => {
       model,
       auditTrail,
       runStore,
+      markerStore,
     });
 
     const results = (await auditTrail.listByRun(runId)).filter(
@@ -517,10 +545,12 @@ describe("Agent Loop — classic generic tools", () => {
 describe("Agent Loop — audit records approved action results", () => {
   let auditTrail: InMemoryAuditTrail;
   let runStore: InMemoryRunStore;
+  let markerStore: InMemoryPreconditionMarkerStore;
 
   beforeEach(() => {
     auditTrail = new InMemoryAuditTrail();
     runStore = new InMemoryRunStore();
+    markerStore = new InMemoryPreconditionMarkerStore();
   });
 
   it("records a tool_result for an approved action tool after resume", async () => {
@@ -546,6 +576,7 @@ describe("Agent Loop — audit records approved action results", () => {
       model,
       auditTrail,
       runStore,
+      markerStore,
     });
     expect(pause.status).toBe("awaiting_approval");
 
@@ -556,6 +587,7 @@ describe("Agent Loop — audit records approved action results", () => {
       model,
       auditTrail,
       runStore,
+      markerStore,
     });
 
     const results = (await auditTrail.listByRun(runId)).filter(
@@ -585,6 +617,7 @@ describe("Agent Loop — audit records approved action results", () => {
       model,
       auditTrail,
       runStore,
+      markerStore,
     });
 
     const results = (await auditTrail.listByRun(runId)).filter(
