@@ -2,3 +2,4 @@ MYTHOUGHTS.md
 .claude/worktrees/
 .env
 HANDOFF.md
+.claude/settings.local.json

@@ -422,6 +422,21 @@ export async function resumeAgentLoop(
     );
   }
 
+  // Find the approvalId from persisted messages for the SDK response link.
+  const persistedMessages = run.messages as PersistedMessage[];
+  const pending = findPendingApproval(persistedMessages);
+
+  if (!pending) {
+    throw new Error(
+      `No pending tool-approval-request found in run ${runId} messages`
+    );
+  }
+  if (pending.toolCallId !== approval.toolCallId) {
+    throw new Error(
+      `Approval toolCallId mismatch for run ${runId}: expected ${pending.toolCallId}, got ${approval.toolCallId}`
+    );
+  }
+
   if (approval.outcome === "denied") {
     // Denial: no second model call; record and close
     await runStore.update(runId, { status: "completed" });
@@ -444,16 +459,6 @@ export async function resumeAgentLoop(
     kind: "approval_granted",
     data: { toolCallId: approval.toolCallId },
   });
-
-  // Find the approvalId from persisted messages for the SDK response link
-  const persistedMessages = run.messages as PersistedMessage[];
-  const pending = findPendingApproval(persistedMessages);
-
-  if (!pending) {
-    throw new Error(
-      `No pending tool-approval-request found in run ${runId} messages`
-    );
-  }
 
   // ADR 0005: Write the approved:<toolName> precondition marker.
   // The execute wrapper checks this marker against the Precondition Table

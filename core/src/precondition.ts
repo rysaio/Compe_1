@@ -135,8 +135,23 @@ function collectMissing(
 /** Generate a human-readable guidance string from the rule and missing markers. */
 function formatGuidance(rule: PreconditionRule, missing: Marker[]): string {
   if ("allOf" in rule) {
-    const list = missing.join(", ");
-    return `需要先满足: ${list}`;
+    const missingSet = new Set(missing);
+    const parts = rule.allOf
+      .map((child) => {
+        if (typeof child === "string") {
+          return missingSet.has(child) ? child : undefined;
+        }
+
+        const childMissing = missingForRule(child, missingSet);
+        return childMissing.length > 0
+          ? formatGuidance(child, childMissing)
+          : undefined;
+      })
+      .filter((part): part is string => Boolean(part));
+
+    return parts.length === 1
+      ? `需要先满足: ${parts[0]}`
+      : `需要先满足: ${parts.join("; ")}`;
   }
   if ("anyOf" in rule) {
     const list = rule.anyOf.join(" 或 ");
@@ -147,6 +162,25 @@ function formatGuidance(rule: PreconditionRule, missing: Marker[]): string {
     return `需要先满足 [${rule.atLeast.of.join(", ")}] 中至少 ${rule.atLeast.k} 个, 当前缺少: ${list}`;
   }
   return "前置条件未满足";
+}
+
+function missingForRule(
+  rule: PreconditionRule,
+  missingSet: ReadonlySet<Marker>
+): Marker[] {
+  if ("allOf" in rule) {
+    return rule.allOf.flatMap((child) =>
+      typeof child === "string"
+        ? missingSet.has(child)
+          ? [child]
+          : []
+        : missingForRule(child, missingSet)
+    );
+  }
+  if ("anyOf" in rule) {
+    return rule.anyOf.filter((marker) => missingSet.has(marker));
+  }
+  return rule.atLeast.of.filter((marker) => missingSet.has(marker));
 }
 
 // ─── Guidance generation ───────────────────────────────────────────────────────
