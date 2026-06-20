@@ -146,6 +146,20 @@ describe("Precondition evaluator", () => {
     }
   });
 
+  it("nested: allOf with anyOf — guidance preserves OR semantics", () => {
+    const rule: PreconditionRule = {
+      allOf: ["called:triage", { anyOf: ["evidence_complete", "analyst_override"] }],
+    };
+    const result = evaluate(rule, new Set(["called:triage"]));
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.guidance).toContain("其中之一");
+      expect(result.guidance).toContain("evidence_complete 或 analyst_override");
+      expect(result.guidance).not.toContain("evidence_complete, analyst_override");
+    }
+  });
+
   it("nested: deep allOf with atLeast inside", () => {
     // A AND (at least 2 of [B, C, D])
     const rule: PreconditionRule = {
@@ -157,6 +171,19 @@ describe("Precondition evaluator", () => {
     // A present, B and C present → ok
     const result2 = evaluate(rule, new Set(["a", "b", "c"]));
     expect(result2.ok).toBe(true);
+  });
+
+  it("nested: allOf with atLeast — guidance preserves k-of-n semantics", () => {
+    const rule: PreconditionRule = {
+      allOf: ["a", { atLeast: { k: 2, of: ["b", "c", "d"] } }],
+    };
+    const result = evaluate(rule, new Set(["a", "b"]));
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.guidance).toContain("至少 2 个");
+      expect(result.guidance).toContain("[b, c, d]");
+    }
   });
 });
 

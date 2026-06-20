@@ -12,7 +12,6 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { InMemoryAuditTrail } from "../src/in-memory-audit-trail.js";
 import { InMemoryRunStore } from "../src/in-memory-run-store.js";
 import { InMemoryPreconditionMarkerStore } from "../src/precondition-marker-store.js";
-import { DEFAULT_PRECONDITION_TABLE } from "../src/tools.js";
 import { runAgentLoop, resumeAgentLoop } from "../src/agent-loop.js";
 
 // ─── Guard: skip if no credentials ───────────────────────────────────────────
@@ -136,6 +135,7 @@ maybeDescribe("Integration — human-approval path (real provider)", () => {
           model,
           auditTrail,
           runStore,
+          markerStore,
         });
 
         expect(resumeResult.status).toBe("completed");
@@ -232,6 +232,7 @@ maybeDescribe("Integration — classic tools (real provider)", () => {
           model,
           auditTrail,
           runStore,
+          markerStore,
         });
         expect(resumeResult.status).toBe("completed");
 

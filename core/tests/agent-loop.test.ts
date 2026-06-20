@@ -11,7 +11,6 @@ import { InMemoryAuditTrail } from "../src/in-memory-audit-trail.js";
 import { InMemoryRunStore } from "../src/in-memory-run-store.js";
 import { InMemoryPreconditionMarkerStore } from "../src/precondition-marker-store.js";
 import { runAgentLoop } from "../src/agent-loop.js";
-import { DEFAULT_PRECONDITION_TABLE } from "../src/tools.js";
 import { createFakeModel } from "./fake-model.js";
 
 const CASE_ID = "case-unit-001";
@@ -343,6 +342,44 @@ describe("Agent Loop — human-approval path", () => {
     const entries = await auditTrail.listByRun(runId);
     const kinds = entries.map((e) => e.kind);
     expect(kinds).toContain("approval_denied");
+  });
+
+  it("rejects approval when toolCallId does not match the pending request", async () => {
+    const model = createFakeModel([
+      {
+        toolCalls: [
+          { toolCallId: "tc-real-approval", toolName: "blockIp", args: { ip: "4.4.4.4", reason: "test" } },
+        ],
+        finishReason: "tool-calls",
+      },
+    ]);
+
+    const runId = makeRunId();
+    await runAgentLoop({
+      runId,
+      caseId: CASE_ID,
+      prompt: "Block 4.4.4.4",
+      model,
+      auditTrail,
+      runStore,
+      markerStore,
+    });
+
+    const { resumeAgentLoop } = await import("../src/agent-loop.js");
+    await expect(
+      resumeAgentLoop({
+        runId,
+        approval: { toolCallId: "tc-wrong-approval", outcome: "approved" },
+        model,
+        auditTrail,
+        runStore,
+        markerStore,
+      })
+    ).rejects.toThrow(/toolCallId mismatch/);
+
+    const run = await runStore.get(runId);
+    expect(run?.status).toBe("awaiting_approval");
+    expect(await markerStore.has(CASE_ID, "approved:blockIp")).toBe(false);
   });
 });
 
