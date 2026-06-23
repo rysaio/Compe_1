@@ -67,7 +67,7 @@ describe("Agent Loop — automatic path", () => {
     ]);
 
     const runId = makeRunId();
-    await runAgentLoop({
+    const result = await runAgentLoop({
       runId,
       caseId: CASE_ID,
       prompt: "Check host-1",
@@ -76,6 +76,10 @@ describe("Agent Loop — automatic path", () => {
       runStore,
       markerStore,
     });
+
+    expect(result.finishReason).toBe("stop");
+    expect(result.steps).toBeGreaterThanOrEqual(2);
+    expect(result.toolExecutions).toBe(1);
 
     const entries = await auditTrail.listByRun(runId);
     const stepEntries = entries.filter((e) => e.kind === "step_finished");
@@ -160,6 +164,12 @@ describe("Agent Loop — human-approval path", () => {
     });
 
     expect(result.status).toBe("awaiting_approval");
+    expect(result.steps).toBeGreaterThanOrEqual(1);
+    expect(result.toolExecutions).toBe(0);
+    expect(result.pendingApproval).toMatchObject({
+      toolCallId: "tc-action-1",
+      toolName: "blockIp",
+    });
 
     // Run store reflects paused status
     const run = await runStore.get(runId);
@@ -263,6 +273,9 @@ describe("Agent Loop — human-approval path", () => {
     });
 
     expect(resumeResult.status).toBe("completed");
+    expect(resumeResult.finishReason).toBe("stop");
+    expect(resumeResult.steps).toBeGreaterThanOrEqual(1);
+    expect(resumeResult.toolExecutions).toBe(1);
 
     const run = await runStore.get(runId);
     expect(run?.status).toBe("completed");
@@ -338,6 +351,9 @@ describe("Agent Loop — human-approval path", () => {
     });
 
     expect(result.status).toBe("completed");
+    expect(result.finishReason).toBe("action_denied");
+    expect(result.steps).toBe(0);
+    expect(result.toolExecutions).toBe(0);
 
     const entries = await auditTrail.listByRun(runId);
     const kinds = entries.map((e) => e.kind);

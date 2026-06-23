@@ -57,6 +57,10 @@ export interface RunAgentLoopOptions {
 export interface RunResult {
   runId: string;
   status: RunStatus;
+  finishReason?: string;
+  steps: number;
+  toolExecutions: number;
+  pendingApproval?: PendingApproval;
 }
 
 export interface ApprovalDecision {
@@ -78,10 +82,10 @@ export interface ResumeAgentLoopOptions {
 
 // ─── System prompt ────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a precise, helpful agent running inside a bounded agent loop.
-Use the available tools when they help answer the request. Some tools require human
-approval before they run; call them when appropriate and the harness will pause for
-approval. Be concise and explain your reasoning.`;
+const SYSTEM_PROMPT = `You are a precise, helpful agent in a ReAct agent loop.
+You must plan before implement. If you need,use the available tools by call them appropriately for tasks. It may require human
+approval before running; Be concise and explain your reasoning,don't hide it or lie. If you find something wrong, stop acting and back to plan, adjust your planning if neccessary.
+Once you get a guide-prompt from harness,check if your tool calling is right?appropriate?need precondition-tool? Then recall the refused tool.`;
 
 // ─── Pending-approval detection ───────────────────────────────────────────────
 
@@ -263,6 +267,8 @@ async function recordToolResult(
  */
 async function runWithApprovalCheck(opts: RunAgentLoopOptions): Promise<{
   finishReason: string;
+  steps: number;
+  toolExecutions: number;
   /** SDK response messages (for persisting and resuming). */
   responseMessages: PersistedMessage[];
   pendingApproval?: PendingApproval;
@@ -280,6 +286,8 @@ async function runWithApprovalCheck(opts: RunAgentLoopOptions): Promise<{
 
   // Wrap tools with precondition checks scoped to this case
   const tools = wrapAllTools(allTools, preconditionTable, markerStore, caseId);
+  let steps = 0;
+  let toolExecutions = 0;
 
   const result = await generateText({
     model,
@@ -289,10 +297,14 @@ async function runWithApprovalCheck(opts: RunAgentLoopOptions): Promise<{
     // isLoopFinished() lets the SDK multi-step until the model says "stop".
     // stepCountIs(maxSteps) is the safety cap.
     stopWhen: [isLoopFinished(), stepCountIs(maxSteps)],
-    onStepFinish: (step: StepInfo) =>
-      recordStep(auditTrail, runId, step, step.stepNumber ?? 0),
-    experimental_onToolCallFinish: (event: ToolCallFinishEvent) =>
-      recordToolResult(auditTrail, runId, event),
+    onStepFinish: async (step: StepInfo) => {
+      steps += 1;
+      await recordStep(auditTrail, runId, step, step.stepNumber ?? 0);
+    },
+    experimental_onToolCallFinish: async (event: ToolCallFinishEvent) => {
+      toolExecutions += 1;
+      await recordToolResult(auditTrail, runId, event);
+    },
   });
 
   // Messages are in result.response.messages (SDK v6 API)
@@ -302,6 +314,8 @@ async function runWithApprovalCheck(opts: RunAgentLoopOptions): Promise<{
 
   return {
     finishReason: result.finishReason,
+    steps,
+    toolExecutions,
     responseMessages,
     pendingApproval,
   };
@@ -356,7 +370,14 @@ export async function runAgentLoop(
         },
       });
 
-      return { runId, status: "awaiting_approval" };
+      return {
+        runId,
+        status: "awaiting_approval",
+        finishReason: loopResult.finishReason,
+        steps: loopResult.steps,
+        toolExecutions: loopResult.toolExecutions,
+        pendingApproval: loopResult.pendingApproval,
+      };
     }
 
     // Normal completion
@@ -370,7 +391,13 @@ export async function runAgentLoop(
       data: { finishReason: loopResult.finishReason },
     });
 
-    return { runId, status: "completed" };
+    return {
+      runId,
+      status: "completed",
+      finishReason: loopResult.finishReason,
+      steps: loopResult.steps,
+      toolExecutions: loopResult.toolExecutions,
+    };
   } catch (err) {
     await runStore.update(runId, { status: "failed" });
     await auditTrail.append({
@@ -450,7 +477,13 @@ export async function resumeAgentLoop(
       kind: "run_finished",
       data: { reason: "action_denied" },
     });
-    return { runId, status: "completed" };
+    return {
+      runId,
+      status: "completed",
+      finishReason: "action_denied",
+      steps: 0,
+      toolExecutions: 0,
+    };
   }
 
   // Approval granted — record it
@@ -488,6 +521,8 @@ export async function resumeAgentLoop(
 
   // Wrap tools with precondition checks scoped to this case
   const tools = wrapAllTools(allTools, preconditionTable, markerStore, run.caseId);
+  let steps = 0;
+  let toolExecutions = 0;
 
   const result = await generateText({
     model,
@@ -495,10 +530,14 @@ export async function resumeAgentLoop(
     system: SYSTEM_PROMPT,
     messages: resumeMessages,
     stopWhen: [isLoopFinished(), stepCountIs(DEFAULT_MAX_STEPS)],
-    onStepFinish: (step: StepInfo) =>
-      recordStep(auditTrail, runId, step, `resume-${step.stepNumber ?? 0}`),
-    experimental_onToolCallFinish: (event: ToolCallFinishEvent) =>
-      recordToolResult(auditTrail, runId, event),
+    onStepFinish: async (step: StepInfo) => {
+      steps += 1;
+      await recordStep(auditTrail, runId, step, `resume-${step.stepNumber ?? 0}`);
+    },
+    experimental_onToolCallFinish: async (event: ToolCallFinishEvent) => {
+      toolExecutions += 1;
+      await recordToolResult(auditTrail, runId, event);
+    },
   });
 
   const finalMessages =
@@ -515,5 +554,11 @@ export async function resumeAgentLoop(
     data: { finishReason: result.finishReason, resumed: true },
   });
 
-  return { runId, status: "completed" };
+  return {
+    runId,
+    status: "completed",
+    finishReason: result.finishReason,
+    steps,
+    toolExecutions,
+  };
 }
