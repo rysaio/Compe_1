@@ -72,4 +72,4 @@ When your changes create orphans:
 - Remove imports/variables/functions that YOUR changes made unused.
 - Don't remove pre-existing dead code unless asked.
 
-The test: Every changed line should trace directly to the user's request/task goal.
+test: Every changed line should trace directly to the user's request or mission.
